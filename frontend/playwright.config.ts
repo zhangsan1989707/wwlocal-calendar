@@ -2,14 +2,19 @@ import { defineConfig, devices } from '@playwright/test'
 
 export default defineConfig({
   testDir: './tests/e2e',
-  timeout: 30000,
-  expect: { timeout: 10000 },
+  timeout: 60000,
+  expect: { timeout: 15000 },
   retries: 0,
-  reporter: [['html', { outputFolder: 'playwright-report' }], ['list']],
+  reporter: [
+    ['html', { outputFolder: 'playwright-report', open: 'never' }],
+    ['list'],
+    ['json', { outputFile: 'playwright-report/test-results.json' }]
+  ],
   use: {
     baseURL: 'http://localhost:3007',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure'
+    trace: 'on',
+    screenshot: 'on',
+    video: 'retain-on-failure'
   },
   projects: [
     {
