@@ -1,0 +1,14 @@
+.DS_Store
+node_modules/
+dist/
+target/
+.idea/
+.vscode/
+*.log
+uploads/
+backups/
+exports/
+frontend/.env.local
+backend/.env
+设计稿/
+需求清单/

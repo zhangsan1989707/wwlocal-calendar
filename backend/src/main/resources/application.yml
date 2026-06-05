@@ -1,0 +1,22 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: wwlocal-calendar
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/wwlocal_calendar}
+    username: ${DB_USERNAME:wwlocal}
+    password: ${DB_PASSWORD:wwlocal_password}
+    driver-class-name: org.postgresql.Driver
+  sql:
+    init:
+      mode: ${SQL_INIT_MODE:always}
+      schema-locations: classpath:database/schema.sql
+      data-locations: classpath:database/data.sql
+
+app:
+  upload-dir: ${UPLOAD_DIR:../uploads}
+  export-dir: ${EXPORT_DIR:../exports}
+  backup-dir: ${BACKUP_DIR:../backups}
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}

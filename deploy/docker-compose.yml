@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: wwlocal-calendar-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: wwlocal_calendar
+      POSTGRES_USER: wwlocal_calendar
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-wwlocal_calendar_password}
+      TZ: Asia/Shanghai
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/001-schema.sql:ro
+      - ../database/seed.sql:/docker-entrypoint-initdb.d/002-seed.sql:ro
+      - ./backup:/app/backup
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wwlocal_calendar -d wwlocal_calendar"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ../backend
+    container_name: wwlocal-calendar-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/wwlocal_calendar
+      SPRING_DATASOURCE_USERNAME: wwlocal_calendar
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD:-wwlocal_calendar_password}
+      APP_UPLOAD_DIR: /app/uploads
+      APP_BACKUP_DIR: /app/backup
+      TZ: Asia/Shanghai
+    volumes:
+      - ./uploads:/app/uploads
+      - ./backup:/app/backup
+    expose:
+      - "8080"
+
+  frontend:
+    build:
+      context: ../frontend
+    container_name: wwlocal-calendar-frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "${HTTP_PORT:-80}:80"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./uploads:/app/uploads:ro
+
+volumes:
+  postgres_data:

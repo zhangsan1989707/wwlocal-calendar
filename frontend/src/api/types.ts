@@ -1,0 +1,57 @@
+export interface User {
+  id: number
+  name: string
+  department_id?: number
+  email?: string
+  phone?: string
+  avatar_color?: string
+  status: string
+}
+
+export interface Department {
+  id: number
+  name: string
+  parent_id?: number
+  sort_order?: number
+  status: string
+}
+
+export interface CalendarItem {
+  id: number
+  name: string
+  description?: string
+  type: 'PERSONAL' | 'SHARED' | 'PUBLIC' | 'ALL_MEMBER'
+  color: string
+  owner_user_id?: number
+  visibility?: string
+  status: string
+  scopes?: unknown
+  shared_members?: unknown
+}
+
+export interface EventItem {
+  id: number
+  calendar_id: number
+  organizer_user_id: number
+  title: string
+  location?: string
+  description?: string
+  tag?: string
+  tag_color?: string
+  start_time: string
+  end_time: string
+  all_day: boolean
+  calendar_name?: string
+  calendar_color?: string
+  recurrence_rule?: string
+  allow_join?: boolean
+  status: string
+}
+
+export interface TagColor {
+  id: number
+  name: string
+  color: string
+  sort_order: number
+  status: string
+}
