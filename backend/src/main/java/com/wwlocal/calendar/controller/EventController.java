@@ -73,15 +73,19 @@ public class EventController {
             ? ((Number) payload.get("operatorUserId")).longValue() 
             : null;
         
-        Path tempDir = Paths.get(System.getProperty("java.io.tmpdir"));
-        Path filePath = events.exportEvents(tempDir, operatorUserId);
-        
-        response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
-        response.setHeader(HttpHeaders.CONTENT_DISPOSITION, 
-            "attachment; filename=\"" + filePath.getFileName().toString() + "\"");
-        
-        try (FileInputStream fis = new FileInputStream(filePath.toFile())) {
-            FileCopyUtils.copy(fis, response.getOutputStream());
+        try {
+            Path tempDir = Paths.get(System.getProperty("java.io.tmpdir"));
+            Path filePath = events.exportEvents(tempDir, operatorUserId);
+            
+            response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
+            response.setHeader(HttpHeaders.CONTENT_DISPOSITION, 
+                "attachment; filename=\"" + filePath.getFileName().toString() + "\"");
+            
+            try (FileInputStream fis = new FileInputStream(filePath.toFile())) {
+                FileCopyUtils.copy(fis, response.getOutputStream());
+            }
+        } catch (Exception e) {
+            throw new IOException("导出日程失败: " + e.getMessage(), e);
         }
     }
 }
