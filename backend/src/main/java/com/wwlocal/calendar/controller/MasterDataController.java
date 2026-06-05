@@ -41,58 +41,58 @@ public class MasterDataController {
 
   @GetMapping("/users")
   public ApiResponse<List<Map<String, Object>>> users(@RequestParam Map<String, String> params) {
-    return ApiResponse.ok(crud.list("sys_user", Set.of("department_id", "status"), params, "id DESC"));
+    return ApiResponse.ok(crud.list("users", Set.of("department_id", "status"), params, "id DESC"));
   }
 
   @PostMapping("/users")
   public ApiResponse<Map<String, Object>> createUser(@RequestBody Map<String, Object> payload) {
-    var row = crud.create("sys_user", USER_COLUMNS, payload);
-    audit.record(number(payload.get("operatorUserId")), "USER", "CREATE", "sys_user", row.get("id"), "系统用户已新增");
+    var row = crud.create("users", USER_COLUMNS, payload);
+    audit.record(number(payload.get("operatorUserId")), "USER", "CREATE", "users", row.get("id"), "系统用户已新增");
     return ApiResponse.ok(row);
   }
 
   @PutMapping("/users/{id}")
   public ApiResponse<Map<String, Object>> updateUser(@PathVariable long id, @RequestBody Map<String, Object> payload) {
-    var row = crud.update("sys_user", USER_COLUMNS, id, payload);
-    audit.record(number(payload.get("operatorUserId")), "USER", "UPDATE", "sys_user", id, "系统用户已更新");
+    var row = crud.update("users", USER_COLUMNS, id, payload);
+    audit.record(number(payload.get("operatorUserId")), "USER", "UPDATE", "users", id, "系统用户已更新");
     return ApiResponse.ok(row);
   }
 
   @GetMapping("/departments")
   public ApiResponse<List<Map<String, Object>>> departments(@RequestParam Map<String, String> params) {
-    return ApiResponse.ok(crud.list("sys_department", Set.of("status"), params, "sort_order ASC, id ASC"));
+    return ApiResponse.ok(crud.list("departments", Set.of("status"), params, "sort_order ASC, id ASC"));
   }
 
   @PostMapping("/departments")
   public ApiResponse<Map<String, Object>> createDepartment(@RequestBody Map<String, Object> payload) {
-    var row = crud.create("sys_department", DEPARTMENT_COLUMNS, payload);
-    audit.record(number(payload.get("operatorUserId")), "DEPARTMENT", "CREATE", "sys_department", row.get("id"), "部门已新增");
+    var row = crud.create("departments", DEPARTMENT_COLUMNS, payload);
+    audit.record(number(payload.get("operatorUserId")), "DEPARTMENT", "CREATE", "departments", row.get("id"), "部门已新增");
     return ApiResponse.ok(row);
   }
 
   @PutMapping("/departments/{id}")
   public ApiResponse<Map<String, Object>> updateDepartment(@PathVariable long id, @RequestBody Map<String, Object> payload) {
-    var row = crud.update("sys_department", DEPARTMENT_COLUMNS, id, payload);
-    audit.record(number(payload.get("operatorUserId")), "DEPARTMENT", "UPDATE", "sys_department", id, "部门已更新");
+    var row = crud.update("departments", DEPARTMENT_COLUMNS, id, payload);
+    audit.record(number(payload.get("operatorUserId")), "DEPARTMENT", "UPDATE", "departments", id, "部门已更新");
     return ApiResponse.ok(row);
   }
 
   @GetMapping("/calendars")
   public ApiResponse<List<Map<String, Object>>> calendarList(@RequestParam Map<String, String> params) {
-    return ApiResponse.ok(crud.list("calendar", Set.of("type", "status", "owner_user_id"), params, "id DESC"));
+    return ApiResponse.ok(crud.list("calendars", Set.of("type", "status", "owner_user_id"), params, "id DESC"));
   }
 
   @PostMapping("/calendars")
   public ApiResponse<Map<String, Object>> createCalendar(@RequestBody Map<String, Object> payload) {
-    var row = crud.create("calendar", CalendarService.CALENDAR_COLUMNS, payload);
-    audit.record(number(payload.get("operatorUserId")), "CALENDAR", "CREATE", "calendar", row.get("id"), "日历已新增");
+    var row = crud.create("calendars", CalendarService.CALENDAR_COLUMNS, payload);
+    audit.record(number(payload.get("operatorUserId")), "CALENDAR", "CREATE", "calendars", row.get("id"), "日历已新增");
     return ApiResponse.ok(row);
   }
 
   @PutMapping("/calendars/{id}")
   public ApiResponse<Map<String, Object>> updateCalendar(@PathVariable long id, @RequestBody Map<String, Object> payload) {
-    var row = crud.update("calendar", CalendarService.CALENDAR_COLUMNS, id, payload);
-    audit.record(number(payload.get("operatorUserId")), "CALENDAR", "UPDATE", "calendar", id, "日历已更新");
+    var row = crud.update("calendars", CalendarService.CALENDAR_COLUMNS, id, payload);
+    audit.record(number(payload.get("operatorUserId")), "CALENDAR", "UPDATE", "calendars", id, "日历已更新");
     return ApiResponse.ok(row);
   }
 
