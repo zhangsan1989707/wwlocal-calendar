@@ -104,13 +104,6 @@ public class OpsController {
     return ApiResponse.ok();
   }
 
-  @PostMapping("/export/events")
-  public ApiResponse<Map<String, String>> exportEvents(@RequestBody(required = false) Map<String, Object> payload) throws Exception {
-    var userId = payload == null ? null : number(payload.get("operatorUserId"));
-    var path = events.exportEvents(Path.of(properties.exportDir()), userId);
-    return ApiResponse.ok(Map.of("filePath", path.toString()));
-  }
-
   @GetMapping("/exports")
   public ApiResponse<List<Map<String, Object>>> exports() {
     return ApiResponse.ok(crud.list("export_task", Set.of("status"), Map.of(), "id DESC"));
