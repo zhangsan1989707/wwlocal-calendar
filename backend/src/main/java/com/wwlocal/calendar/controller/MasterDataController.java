@@ -21,9 +21,9 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api")
 public class MasterDataController {
   private static final Set<String> USER_COLUMNS = Set.of(
-      "name", "department_id", "email", "phone", "avatar_color", "status");
+      "name", "department_id", "email", "mobile", "status");
   private static final Set<String> DEPARTMENT_COLUMNS = Set.of(
-      "name", "parent_id", "sort_order", "status");
+      "name", "parent_id", "sort_order", "enabled");
   private static final Set<String> TAG_COLUMNS = Set.of(
       "name", "color", "enabled");
 
@@ -41,7 +41,7 @@ public class MasterDataController {
 
   @GetMapping("/users")
   public ApiResponse<List<Map<String, Object>>> users(@RequestParam Map<String, String> params) {
-    return ApiResponse.ok(crud.list("users", Set.of("department_id", "status"), params, "id DESC"));
+    return ApiResponse.ok(crud.list("users", Set.of("department_id", "status"), params, "created_at DESC"));
   }
 
   @PostMapping("/users")
@@ -52,7 +52,7 @@ public class MasterDataController {
   }
 
   @PutMapping("/users/{id}")
-  public ApiResponse<Map<String, Object>> updateUser(@PathVariable long id, @RequestBody Map<String, Object> payload) {
+  public ApiResponse<Map<String, Object>> updateUser(@PathVariable String id, @RequestBody Map<String, Object> payload) {
     var row = crud.update("users", USER_COLUMNS, id, payload);
     audit.record(number(payload.get("operatorUserId")), "USER", "UPDATE", "users", id, "系统用户已更新");
     return ApiResponse.ok(row);
@@ -60,7 +60,7 @@ public class MasterDataController {
 
   @GetMapping("/departments")
   public ApiResponse<List<Map<String, Object>>> departments(@RequestParam Map<String, String> params) {
-    return ApiResponse.ok(crud.list("departments", Set.of("status"), params, "sort_order ASC, id ASC"));
+    return ApiResponse.ok(crud.list("departments", Set.of("enabled"), params, "sort_order ASC, id ASC"));
   }
 
   @PostMapping("/departments")
@@ -71,7 +71,7 @@ public class MasterDataController {
   }
 
   @PutMapping("/departments/{id}")
-  public ApiResponse<Map<String, Object>> updateDepartment(@PathVariable long id, @RequestBody Map<String, Object> payload) {
+  public ApiResponse<Map<String, Object>> updateDepartment(@PathVariable String id, @RequestBody Map<String, Object> payload) {
     var row = crud.update("departments", DEPARTMENT_COLUMNS, id, payload);
     audit.record(number(payload.get("operatorUserId")), "DEPARTMENT", "UPDATE", "departments", id, "部门已更新");
     return ApiResponse.ok(row);
@@ -79,7 +79,7 @@ public class MasterDataController {
 
   @GetMapping("/calendars")
   public ApiResponse<List<Map<String, Object>>> calendarList(@RequestParam Map<String, String> params) {
-    return ApiResponse.ok(crud.list("calendars", Set.of("type", "status", "owner_user_id"), params, "id DESC"));
+    return ApiResponse.ok(crud.list("calendars", Set.of("type", "visible", "owner_user_id"), params, "created_at DESC"));
   }
 
   @PostMapping("/calendars")
@@ -90,7 +90,7 @@ public class MasterDataController {
   }
 
   @PutMapping("/calendars/{id}")
-  public ApiResponse<Map<String, Object>> updateCalendar(@PathVariable long id, @RequestBody Map<String, Object> payload) {
+  public ApiResponse<Map<String, Object>> updateCalendar(@PathVariable String id, @RequestBody Map<String, Object> payload) {
     var row = crud.update("calendars", CalendarService.CALENDAR_COLUMNS, id, payload);
     audit.record(number(payload.get("operatorUserId")), "CALENDAR", "UPDATE", "calendars", id, "日历已更新");
     return ApiResponse.ok(row);
@@ -107,13 +107,13 @@ public class MasterDataController {
   }
 
   @PutMapping("/all-calendars/{id}")
-  public ApiResponse<Map<String, Object>> updateAllCalendar(@PathVariable long id, @RequestBody Map<String, Object> payload) {
+  public ApiResponse<Map<String, Object>> updateAllCalendar(@PathVariable String id, @RequestBody Map<String, Object> payload) {
     payload.put("id", id);
     return ApiResponse.ok(calendars.saveAllCalendar(payload));
   }
 
   @PostMapping("/all-calendars/{id}/disable")
-  public ApiResponse<Void> disableAllCalendar(@PathVariable long id, @RequestBody(required = false) Map<String, Object> payload) {
+  public ApiResponse<Void> disableAllCalendar(@PathVariable String id, @RequestBody(required = false) Map<String, Object> payload) {
     calendars.disableAllCalendar(id, payload == null ? null : number(payload.get("operatorUserId")));
     return ApiResponse.ok();
   }

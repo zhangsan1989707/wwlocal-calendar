@@ -10,7 +10,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class CalendarService {
   public static final Set<String> CALENDAR_COLUMNS = Set.of(
-      "name", "description", "type", "color", "owner_user_id", "visibility", "status");
+      "name", "description", "type", "color", "owner_user_id", "visible");
 
   private final CrudService crud;
   private final JdbcTemplate jdbc;
@@ -43,7 +43,7 @@ public class CalendarService {
   public Map<String, Object> saveAllCalendar(Map<String, Object> payload) {
     var id = payload.get("id");
     payload.put("type", "ALL_MEMBER");
-    payload.putIfAbsent("visibility", "ALL");
+    payload.putIfAbsent("visible", true);
     Map<String, Object> calendar = id == null
         ? crud.create("calendars", CALENDAR_COLUMNS, payload)
         : crud.update("calendars", CALENDAR_COLUMNS, ((Number) id).longValue(), payload);
@@ -57,14 +57,14 @@ public class CalendarService {
 
   @Transactional
   public void disableAllCalendar(long id, Long operatorUserId) {
-    crud.disable("calendars", id);
+    jdbc.update("UPDATE calendars SET visible = false, updated_at = now() WHERE id = ?", id);
     audit.record(operatorUserId, "ALL_CALENDAR", "DISABLE", "calendars", id, "全员日历已停用");
   }
 
   private void replaceScopes(long calendarId, List<?> scopes) {
     jdbc.update("DELETE FROM calendar_auto_subscribe_scope WHERE calendar_id = ?", calendarId);
     if (scopes == null || scopes.isEmpty()) {
-      jdbc.update("INSERT INTO calendar_auto_subscribe_scope(calendar_id, scope_type) VALUES (?, 'ALL_COMPANY')", calendarId);
+      jdbc.update("INSERT INTO calendar_auto_subscribe_scope(calendar_id, scope_type) VALUES (?, 'COMPANY')", calendarId);
       return;
     }
     for (Object item : scopes) {

@@ -80,8 +80,8 @@ public class EventService {
     if (userId != null && !userId.isBlank()) {
       sql.append(" LEFT JOIN event_participant ep ON ep.event_id = e.id");
       clauses.add("(ep.user_id = ? OR e.organizer_user_id = ?)");
-      args.add(Long.parseLong(userId));
-      args.add(Long.parseLong(userId));
+      args.add(userId);
+      args.add(userId);
     }
 
     // By default show only ACTIVE events (not CANCELLED)
@@ -104,12 +104,12 @@ public class EventService {
 
     if (params.get("calendar_id") != null && !params.get("calendar_id").isBlank()) {
       clauses.add("e.calendar_id = ?");
-      args.add(Long.parseLong(params.get("calendar_id")));
+      args.add(params.get("calendar_id"));
     }
     // Support both 'calendarId' (from frontend CalendarSearch) and 'calendar_id'
     if (params.get("calendarId") != null && !params.get("calendarId").isBlank()) {
       clauses.add("e.calendar_id = ?");
-      args.add(Long.parseLong(params.get("calendarId")));
+      args.add(params.get("calendarId"));
     }
     if (params.get("tag_id") != null && !params.get("tag_id").isBlank()) {
       clauses.add("e.tag_id = ?");
@@ -135,7 +135,7 @@ public class EventService {
     }
     if (params.get("organizer_user_id") != null && !params.get("organizer_user_id").isBlank()) {
       clauses.add("e.organizer_user_id = ?");
-      args.add(Long.parseLong(params.get("organizer_user_id")));
+      args.add(params.get("organizer_user_id"));
     }
 
     if (!clauses.isEmpty()) {
@@ -264,7 +264,7 @@ public class EventService {
           eventId, rrule, payload.get("recurrence_end"));
     } else {
       jdbc.update(
-          "UPDATE event_recurrence SET rrule = ?, end_at = ?::timestamptz, updated_at = now() WHERE event_id = ?",
+          "UPDATE event_recurrence SET rrule = ?, end_at = ?::timestamptz WHERE event_id = ?",
           rrule, payload.get("recurrence_end"), eventId);
     }
   }

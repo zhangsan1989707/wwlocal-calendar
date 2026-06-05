@@ -55,7 +55,7 @@ public class CrudService {
     return jdbc.queryForMap(sql, args.toArray());
   }
 
-  public Map<String, Object> update(String table, Set<String> columns, long id, Map<String, Object> payload) {
+  public Map<String, Object> update(String table, Set<String> columns, Object id, Map<String, Object> payload) {
     var values = filtered(columns, payload);
     values.put("updated_at", Timestamp.from(Instant.now()));
     var sets = new StringJoiner(", ");

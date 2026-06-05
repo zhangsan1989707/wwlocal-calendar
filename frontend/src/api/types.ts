@@ -30,7 +30,7 @@ export interface CalendarItem {
   color: string
   owner_user_id?: string
   visible: boolean
-  status: string
+  status?: string
   created_at?: string
   updated_at?: string
 }
@@ -72,14 +72,13 @@ export interface CalendarTag {
 // ========== Attachment ==========
 export interface Attachment {
   id: string
-  schedule_id: string
+  event_id: string
   file_name: string
   file_path: string
   file_size: number
   uploaded_by: string
-  content_type?: string
+  content_type: string
   created_at?: string
-  updated_at?: string
 }
 
 // ========== Export Task ==========
@@ -102,6 +101,5 @@ export interface SystemConfig {
   config_value: string
   description?: string
   updated_by?: string
-  created_at?: string
   updated_at?: string
 }

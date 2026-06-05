@@ -75,10 +75,10 @@ public class OpsController {
     }
     file.transferTo(target);
     var row = jdbc.queryForMap("""
-        INSERT INTO event_attachment(event_id, file_name, stored_name, file_size, content_type, storage_path, uploaded_by)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO event_attachment(event_id, file_name, file_path, file_size, content_type, uploaded_by)
+        VALUES (?, ?, ?, ?, ?, ?)
         RETURNING *
-        """, eventId, original, stored, file.getSize(), file.getContentType(), target.toString(), userId);
+        """, eventId, original, target.toString(), file.getSize(), file.getContentType(), userId);
     audit.record(userId, "ATTACHMENT", "UPLOAD", "event_attachment", row.get("id"), "附件已上传");
     return ApiResponse.ok(row);
   }
@@ -86,7 +86,7 @@ public class OpsController {
   @GetMapping("/files/{id}/download")
   public ResponseEntity<FileSystemResource> download(@PathVariable long id) {
     var row = jdbc.queryForMap("SELECT * FROM event_attachment WHERE id = ?", id);
-    var path = Path.of(String.valueOf(row.get("storage_path"))).normalize();
+    var path = Path.of(String.valueOf(row.get("file_path"))).normalize();
     var resource = new FileSystemResource(path);
     return ResponseEntity.ok()
         .contentType(MediaType.APPLICATION_OCTET_STREAM)
@@ -97,7 +97,7 @@ public class OpsController {
   @PostMapping("/attachments/{id}/delete")
   public ApiResponse<Void> deleteAttachment(@PathVariable long id, @RequestBody(required = false) Map<String, Object> payload) throws Exception {
     var row = jdbc.queryForMap("SELECT * FROM event_attachment WHERE id = ?", id);
-    Files.deleteIfExists(Path.of(String.valueOf(row.get("storage_path"))));
+    Files.deleteIfExists(Path.of(String.valueOf(row.get("file_path"))));
     crud.delete("event_attachment", id);
     audit.record(payload == null ? null : number(payload.get("operatorUserId")), "ATTACHMENT", "DELETE",
         "event_attachment", id, "附件已删除");
@@ -126,8 +126,8 @@ public class OpsController {
     var marker = dir.resolve("backup-" + System.currentTimeMillis() + ".txt");
     Files.writeString(marker, "数据库与附件目录备份记录\n");
     var row = jdbc.queryForMap("""
-        INSERT INTO backup_record(backup_type, file_path, file_size, status, operated_by)
-        VALUES ('MANUAL', ?, ?, 'COMPLETED', ?)
+        INSERT INTO backup_record(backup_type, action, file_path, file_size, status, operator_user_id)
+        VALUES ('FULL', 'BACKUP', ?, ?, 'FINISHED', ?)
         RETURNING *
         """, marker.toString(), Files.size(marker), payload == null ? null : number(payload.get("operatorUserId")));
     audit.record(payload == null ? null : number(payload.get("operatorUserId")), "BACKUP", "CREATE", "backup_record",
@@ -139,14 +139,11 @@ public class OpsController {
   public ApiResponse<Map<String, Object>> restoreRecord(@PathVariable long id, @RequestBody Map<String, Object> payload) {
     var row = jdbc.queryForMap("""
         UPDATE backup_record
-        SET restore_started_at = COALESCE(restore_started_at, now()),
-            restore_finished_at = now(),
-            restore_result = ?,
-            verified_by = ?,
-            conclusion = ?
+        SET verification_result = ?,
+            finished_at = now()
         WHERE id = ?
         RETURNING *
-        """, payload.get("restoreResult"), payload.get("verifiedBy"), payload.get("conclusion"), id);
+        """, payload.get("verificationResult"), id);
     audit.record(number(payload.get("operatorUserId")), "BACKUP", "RESTORE_RECORD", "backup_record", id, "恢复结果已登记");
     return ApiResponse.ok(row);
   }

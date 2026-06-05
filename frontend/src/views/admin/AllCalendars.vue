@@ -193,8 +193,8 @@ async function disable(row: CalendarItem) {
 }
 
 function buildScopes() {
-  if (scopeType.value === 'ALL_COMPANY') return [{ scopeType: 'ALL_COMPANY' }];
-  if (scopeType.value === 'MEMBERS') return scopeUserIds.value.map((userId) => ({ scopeType: 'MEMBER', userId }));
+  if (scopeType.value === 'ALL_COMPANY') return [{ scopeType: 'COMPANY' }];
+  if (scopeType.value === 'MEMBERS') return scopeUserIds.value.map((userId) => ({ scopeType: 'USER', userId }));
   return scopeDepartmentIds.value.map((departmentId) => ({ scopeType: 'DEPARTMENT', departmentId }));
 }
 
