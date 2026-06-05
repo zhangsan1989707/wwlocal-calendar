@@ -25,7 +25,7 @@ public class MasterDataController {
   private static final Set<String> DEPARTMENT_COLUMNS = Set.of(
       "name", "parent_id", "sort_order", "status");
   private static final Set<String> TAG_COLUMNS = Set.of(
-      "name", "color", "sort_order", "status");
+      "name", "color", "enabled");
 
   private final CrudService crud;
   private final CalendarService calendars;
@@ -120,7 +120,7 @@ public class MasterDataController {
 
   @GetMapping("/tags")
   public ApiResponse<List<Map<String, Object>>> tags() {
-    return ApiResponse.ok(crud.list("calendar_tag", Set.of("status"), Map.of(), "sort_order ASC, id ASC"));
+    return ApiResponse.ok(crud.list("calendar_tag", Set.of("enabled"), Map.of(), "id ASC"));
   }
 
   @PostMapping("/tags")
