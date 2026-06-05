@@ -1,14 +1,35 @@
 <template>
-  <div>
-    <div class="toolbar">
-      <h1>{{ title }}</h1>
-      <el-button type="primary" @click="openCreate" v-if="canCreate">新增</el-button>
-      <el-button @click="createBackup" v-if="resource === 'backup'">发起备份</el-button>
-      <el-button @click="exportEvents" v-if="resource === 'events'">导出日程</el-button>
+  <div class="admin-page">
+    <div class="admin-page-head">
+      <div>
+        <span>{{ resourceMeta.eyebrow }}</span>
+        <h1>{{ title }}</h1>
+        <p>{{ resourceMeta.description }}</p>
+      </div>
+      <div class="admin-actions">
+        <el-button type="primary" @click="openCreate" v-if="canCreate">新增</el-button>
+        <el-button @click="createBackup" v-if="resource === 'backup'">发起备份</el-button>
+        <el-button @click="exportEvents" v-if="resource === 'events'">导出日程</el-button>
+      </div>
     </div>
     <section class="panel table-panel">
-      <el-table :data="rows" stripe>
-        <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" min-width="140" />
+      <div class="table-summary">
+        <strong>{{ rows.length }}</strong>
+        <span>条记录</span>
+      </div>
+      <el-table :data="rows" stripe empty-text="暂无数据">
+        <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" min-width="140">
+          <template #default="{ row }">
+            <span v-if="column.prop === 'color'" class="color-cell">
+              <i :style="{ background: row[column.prop] || '#2f7cf6' }" />
+              {{ row[column.prop] || '-' }}
+            </span>
+            <span v-else-if="column.prop === 'status'" class="status-chip" :class="{ inactive: row[column.prop] !== 'ACTIVE' }">
+              {{ row[column.prop] || '-' }}
+            </span>
+            <span v-else>{{ row[column.prop] ?? '-' }}</span>
+          </template>
+        </el-table-column>
         <el-table-column label="操作" width="160" fixed="right" v-if="canCreate">
           <template #default="{ row }">
             <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
@@ -51,6 +72,7 @@ const form = reactive<Record<string, any>>({})
 const canCreate = computed(() => ['users', 'departments', 'calendars'].includes(props.resource))
 const columns = computed(() => columnMap[props.resource] || defaultColumns)
 const fields = computed(() => fieldMap[props.resource] || [])
+const resourceMeta = computed(() => metaMap[props.resource] || { eyebrow: 'Resource', description: '查看和维护系统基础数据。' })
 
 const statusOptions = [
   { label: '启用', value: 'ACTIVE' },
@@ -72,6 +94,18 @@ const defaultColumns = [
   { prop: 'status', label: '状态' },
   { prop: 'created_at', label: '创建时间' }
 ]
+
+const metaMap: Record<string, { eyebrow: string; description: string }> = {
+  users: { eyebrow: 'People', description: '维护系统成员、联系方式与启停状态。' },
+  departments: { eyebrow: 'Organization', description: '维护部门结构与展示顺序。' },
+  calendars: { eyebrow: 'Calendars', description: '配置个人、共享与公共日历基础信息。' },
+  events: { eyebrow: 'Events', description: '查看组织内日程记录并创建导出任务。' },
+  attachments: { eyebrow: 'Files', description: '查看日程关联附件与上传信息。' },
+  exports: { eyebrow: 'Exports', description: '跟踪日程导出任务及文件路径。' },
+  'audit-logs': { eyebrow: 'Audit', description: '查看系统近期关键操作记录。' },
+  backup: { eyebrow: 'Backup', description: '管理备份恢复记录与执行结果。' },
+  settings: { eyebrow: 'Settings', description: '查看系统配置项和值。' }
+}
 
 const columnMap: Record<string, Array<{ prop: string; label: string }>> = {
   users: [
@@ -215,11 +249,112 @@ async function createBackup() {
 </script>
 
 <style scoped>
+.admin-page {
+  padding: 24px;
+}
+
 h1 {
   margin: 0;
 }
 
+.admin-page-head {
+  min-height: 82px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  margin-bottom: 16px;
+}
+
+.admin-page-head span {
+  color: var(--calendar-muted);
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.admin-page-head h1 {
+  margin-top: 4px;
+  font-size: 28px;
+}
+
+.admin-page-head p {
+  margin: 8px 0 0;
+  color: var(--calendar-soft-text);
+  font-weight: 600;
+}
+
+.admin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 .table-panel {
-  padding: 12px;
+  padding: 14px;
+}
+
+.table-summary {
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 4px 12px;
+  color: var(--calendar-soft-text);
+  font-weight: 700;
+}
+
+.table-summary strong {
+  color: var(--calendar-text);
+  font-size: 22px;
+}
+
+.color-cell {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.color-cell i {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+}
+
+.status-chip {
+  min-width: 64px;
+  height: 26px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 10px;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--calendar-control-radius);
+  color: #15803d;
+  background: #f0fdf4;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.status-chip.inactive {
+  border-color: #e5e7eb;
+  color: var(--calendar-muted);
+  background: #f8fafc;
+}
+
+@media (max-width: 900px) {
+  .admin-page {
+    padding: 14px 12px;
+  }
+
+  .admin-page-head {
+    min-height: 0;
+    flex-direction: column;
+  }
+
+  .admin-actions {
+    justify-content: flex-start;
+  }
 }
 </style>
