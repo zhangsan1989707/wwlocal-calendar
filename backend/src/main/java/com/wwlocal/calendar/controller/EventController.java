@@ -50,7 +50,7 @@ public class EventController {
 
     @DeleteMapping("/events/{id}")
     public ApiResponse<Void> delete(@PathVariable long id,
-                                    @RequestParam(required = false) Long operatorUserId,
+                                    @RequestParam(required = false) String operatorUserId,
                                     @RequestParam(required = false, defaultValue = "single") String scope) {
         events.remove(id, operatorUserId, scope);
         return ApiResponse.ok();
@@ -58,7 +58,7 @@ public class EventController {
 
     @PostMapping("/events/{id}/respond")
     public ApiResponse<Void> respond(@PathVariable long id, @RequestBody Map<String, Object> payload) {
-        events.respond(id, ((Number) payload.get("userId")).longValue(), String.valueOf(payload.get("status")));
+        events.respond(id, String.valueOf(payload.get("userId")), String.valueOf(payload.get("status")));
         return ApiResponse.ok();
     }
 
@@ -90,14 +90,14 @@ public class EventController {
     @PutMapping("/todos/{todoId}")
     public ApiResponse<Map<String, Object>> toggleTodo(@PathVariable long todoId, @RequestBody Map<String, Object> payload) {
         boolean completed = Boolean.TRUE.equals(payload.get("completed"));
-        Long operatorUserId = payload.get("operatorUserId") != null ? ((Number) payload.get("operatorUserId")).longValue() : null;
+        String operatorUserId = payload.get("operatorUserId") != null ? String.valueOf(payload.get("operatorUserId")) : null;
         return ApiResponse.ok(events.toggleTodo(todoId, completed, operatorUserId));
     }
 
     @PostMapping("/export/events")
     public void exportEvents(@RequestBody Map<String, Object> payload, HttpServletResponse response) throws IOException {
-        Long operatorUserId = payload.get("operatorUserId") != null 
-            ? ((Number) payload.get("operatorUserId")).longValue() 
+        String operatorUserId = payload.get("operatorUserId") != null 
+            ? String.valueOf(payload.get("operatorUserId")) 
             : null;
         
         try {

@@ -538,14 +538,14 @@ public class EventService {
     jdbc.update("DELETE FROM event_participant WHERE event_id = ?", eventId);
 
     @SuppressWarnings("unchecked")
-    var participantIds = (List<Number>) payload.get("participantIds");
+    var participantIds = (List<String>) payload.get("participantIds");
     if (participantIds == null || participantIds.isEmpty()) {
       return;
     }
     for (var pid : participantIds) {
       jdbc.update(
           "INSERT INTO event_participant(event_id, user_id, response_status) VALUES (?, ?, 'NEEDS_ACTION')",
-          eventId, pid.longValue()
+          eventId, String.valueOf(pid)
       );
     }
   }
@@ -571,7 +571,7 @@ public class EventService {
       jdbc.update(
           "INSERT INTO event_todo(event_id, title, assignee_user_id, priority, completed) VALUES (?, ?, ?, ?, ?)",
           eventId, title,
-          assigneeUserId != null ? ((Number) assigneeUserId).longValue() : null,
+          assigneeUserId != null ? String.valueOf(assigneeUserId) : null,
           priority, completed
       );
     }
@@ -605,7 +605,7 @@ public class EventService {
    * scope=single: soft-delete single event (status = CANCELLED).
    * scope=series: cancel the entire recurrence series.
    */
-  public void remove(long id, Long operatorUserId, String scope) {
+  public void remove(long id, String operatorUserId, String scope) {
     if ("series".equals(scope)) {
       // 删除整个重复系列：取消主事件
       if (operatorUserId != null) {
@@ -649,7 +649,7 @@ public class EventService {
   /**
    * Respond to an event invitation. Upserts a row in event_participant.
    */
-  public void respond(long id, long userId, String status) {
+  public void respond(long id, String userId, String status) {
     var existing = jdbc.queryForList(
         "SELECT response_status FROM event_participant WHERE event_id = ? AND user_id = ?", id, userId);
     if (existing.isEmpty()) {
@@ -669,7 +669,7 @@ public class EventService {
    */
   public List<Map<String, Object>> freebusy(Map<String, Object> payload) {
     @SuppressWarnings("unchecked")
-    var userIds = (List<Number>) payload.get("user_ids");
+    var userIds = (List<String>) payload.get("user_ids");
     // Support both start_at/end_at (new convention) and start_time/end_time (legacy)
     var start = String.valueOf(payload.getOrDefault("start_at", payload.get("start_time")));
     var end = String.valueOf(payload.getOrDefault("end_at", payload.get("end_time")));
@@ -689,13 +689,13 @@ public class EventService {
           AND e.end_at > ?::timestamptz
         ORDER BY e.start_at
         """;
-    return jdbc.queryForList(sql, userIds.toArray(new Number[0]), end, start);
+    return jdbc.queryForList(sql, userIds.toArray(new String[0]), end, start);
   }
 
   /**
    * Export events to an Excel-like structure and record an export_task.
    */
-  public Map<String, Object> exportEvents(Long userId, String scope) {
+  public Map<String, Object> exportEvents(String userId, String scope) {
     var sql = new StringBuilder("""
         SELECT e.id, e.title, e.start_at, e.end_at, e.location, e.description,
                e.status, e.calendar_id, e.organizer_user_id, e.created_at
@@ -729,7 +729,7 @@ public class EventService {
   /**
    * Export all events to an XLSX file on disk. Returns the file path.
    */
-  public Path exportEvents(Path outputDir, Long userId) throws Exception {
+  public Path exportEvents(Path outputDir, String userId) throws Exception {
     Files.createDirectories(outputDir);
 
     var sql = new StringBuilder("""
@@ -815,7 +815,7 @@ public class EventService {
     return jdbc.queryForList("SELECT * FROM event_todo WHERE event_id = ?", eventId);
   }
 
-  public Map<String, Object> toggleTodo(long todoId, boolean completed, Long operatorUserId) {
+  public Map<String, Object> toggleTodo(long todoId, boolean completed, String operatorUserId) {
     jdbc.update("UPDATE event_todo SET completed = ?, updated_at = now() WHERE id = ?", completed, todoId);
     if (operatorUserId != null) {
       audit.record(operatorUserId, "todo", completed ? "complete" : "reopen", "event_todo", todoId, completed ? "待办已完成" : "待办已重新打开");

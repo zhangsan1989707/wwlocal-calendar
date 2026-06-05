@@ -29,7 +29,7 @@ public class CalendarService {
             FILTER (WHERE s.id IS NOT NULL), '[]') AS scopes,
           COALESCE(json_agg(DISTINCT jsonb_build_object('id', u.id, 'name', u.name))
             FILTER (WHERE u.id IS NOT NULL), '[]') AS shared_members
-        FROM calendar c
+        FROM calendars c
         LEFT JOIN calendar_auto_subscribe_scope s ON s.calendar_id = c.id
         LEFT JOIN calendar_shared_member m ON m.calendar_id = c.id
         LEFT JOIN users u ON u.id = m.user_id
@@ -56,7 +56,7 @@ public class CalendarService {
   }
 
   @Transactional
-  public void disableAllCalendar(long id, Long operatorUserId) {
+  public void disableAllCalendar(long id, String operatorUserId) {
     jdbc.update("UPDATE calendars SET visible = false, updated_at = now() WHERE id = ?", id);
     audit.record(operatorUserId, "ALL_CALENDAR", "DISABLE", "calendars", id, "全员日历已停用");
   }
@@ -84,11 +84,11 @@ public class CalendarService {
     }
     for (Object value : memberIds) {
       jdbc.update("INSERT INTO calendar_shared_member(calendar_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING",
-          calendarId, ((Number) value).longValue());
+          calendarId, String.valueOf(value));
     }
   }
 
-  private Long number(Object value) {
-    return value instanceof Number n ? n.longValue() : null;
+  private String number(Object value) {
+    return value instanceof String s ? s : null;
   }
 }

@@ -11,7 +11,7 @@ public class AuditService {
     this.jdbc = jdbc;
   }
 
-  public void record(Long operatorUserId, String module, String action, String objectType, Object objectId, String summary) {
+  public void record(String operatorUserId, String module, String action, String objectType, Object objectId, String summary) {
     jdbc.update("""
         INSERT INTO audit_log(operator_user_id, module, action, object_type, object_id, detail)
         VALUES (?, ?, ?, ?, ?, ?)

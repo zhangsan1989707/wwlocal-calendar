@@ -57,8 +57,8 @@ public class OpsController {
   @PostMapping("/files/upload")
   public ApiResponse<Map<String, Object>> upload(
       @RequestParam MultipartFile file,
-      @RequestParam(required = false) Long eventId,
-      @RequestParam(required = false) Long userId) throws Exception {
+      @RequestParam(required = false) String eventId,
+      @RequestParam(required = false) String userId) throws Exception {
     if (file.isEmpty()) {
       throw new IllegalArgumentException("文件不能为空");
     }
@@ -74,11 +74,12 @@ public class OpsController {
       throw new IllegalArgumentException("保存路径不合法");
     }
     file.transferTo(target);
+    Long eventIdLong = eventId != null && !eventId.isBlank() ? Long.valueOf(eventId) : null;
     var row = jdbc.queryForMap("""
         INSERT INTO event_attachment(event_id, file_name, file_path, file_size, content_type, uploaded_by)
         VALUES (?, ?, ?, ?, ?, ?)
         RETURNING *
-        """, eventId, original, target.toString(), file.getSize(), file.getContentType(), userId);
+        """, eventIdLong, original, target.toString(), file.getSize(), file.getContentType(), userId);
     audit.record(userId, "ATTACHMENT", "UPLOAD", "event_attachment", row.get("id"), "附件已上传");
     return ApiResponse.ok(row);
   }
@@ -170,7 +171,7 @@ public class OpsController {
     return jdbc.queryForObject("SELECT count(*) FROM " + table, Long.class);
   }
 
-  private Long number(Object value) {
-    return value instanceof Number n ? n.longValue() : null;
+  private String number(Object value) {
+    return value instanceof String s ? s : null;
   }
 }

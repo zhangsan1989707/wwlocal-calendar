@@ -153,7 +153,7 @@ public class MasterDataController {
     return ApiResponse.ok();
   }
 
-  private Long number(Object value) {
-    return value instanceof Number n ? n.longValue() : null;
+  private String number(Object value) {
+    return value instanceof String s ? s : null;
   }
 }
