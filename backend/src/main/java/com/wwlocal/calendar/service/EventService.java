@@ -683,18 +683,27 @@ public class EventService {
       return List.of();
     }
 
-    var sql = """
+    // Build IN clause with dynamic placeholders for each user_id
+    var placeholders = new StringJoiner(",");
+    for (var ignored : userIds) {
+      placeholders.add("?");
+    }
+
+    var sql = new StringBuilder("""
         SELECT e.id, e.title, e.start_at, e.end_at, e.all_day, e.status,
                COALESCE(ep.response_status, 'NEEDS_ACTION') AS response_status
         FROM event e
         JOIN event_participant ep ON ep.event_id = e.id
         WHERE e.status = 'ACTIVE'
-          AND ep.user_id = ANY(?)
-          AND e.start_at < ?::timestamptz
-          AND e.end_at > ?::timestamptz
-        ORDER BY e.start_at
-        """;
-    return jdbc.queryForList(sql, userIds.toArray(new String[0]), end, start);
+          AND ep.user_id IN (""").append(placeholders).append(")")
+        .append(" AND e.start_at < ?::timestamptz")
+        .append(" AND e.end_at > ?::timestamptz")
+        .append(" ORDER BY e.start_at");
+
+    var args = new ArrayList<>(userIds);
+    args.add(end);
+    args.add(start);
+    return jdbc.queryForList(sql.toString(), args.toArray());
   }
 
   /**
