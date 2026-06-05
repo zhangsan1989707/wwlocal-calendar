@@ -376,7 +376,7 @@ const formCalendars = computed(() => displayCalendars.value)
 const personalCalendars = computed(() => displayCalendars.value.filter((item) => item.type === 'PERSONAL'))
 const sharedCalendars = computed(() => displayCalendars.value.filter((item) => item.type !== 'PERSONAL'))
 const displayEvents = computed(() => (store.events.length ? store.events : localEvents))
-const filteredEvents = computed(() => displayEvents.value.filter((event) => visibleCalendarIds.value.includes(event.calendar_id)))
+const filteredEvents = computed(() => displayEvents.value.filter((event) => visibleCalendarIds.value.map(String).includes(String(event.calendar_id))))
 const monthTitle = computed(() => `${selectedDate.value.getFullYear()}年${selectedDate.value.getMonth() + 1}月`)
 const stageTitle = computed(() => {
   if (view.value === 'day') return `${selectedDate.value.getFullYear()}年${selectedDate.value.getMonth() + 1}月${selectedDate.value.getDate()}日`
@@ -417,9 +417,7 @@ onMounted(async () => {
 
 watch(selectedDate, reload)
 watch(displayCalendars, (items) => {
-  if (!visibleCalendarIds.value.length) {
-    visibleCalendarIds.value = items.map((item) => item.id)
-  }
+  visibleCalendarIds.value = items.map((item) => item.id)
 })
 
 async function reload() {
