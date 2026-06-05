@@ -2,7 +2,8 @@
   <div class="calendar-app">
     <header class="calendar-window-bar desktop-calendar">
       <strong>日程</strong>
-      <router-link class="admin-login-link" to="/admin">登录管理后台</router-link>
+      <!-- 管理后台入口已隐藏，只能通过固定 URL /admin 访问 -->
+      <!-- <router-link class="admin-login-link" to="/admin">登录管理后台</router-link> -->
     </header>
 
     <main class="calendar-workspace desktop-calendar">
@@ -160,7 +161,8 @@
             <router-link class="mobile-icon-button" to="/calendar/search">
               <el-icon><Search /></el-icon>
             </router-link>
-            <router-link class="mobile-admin-link" to="/admin">登录管理后台</router-link>
+            <!-- 管理后台入口已隐藏，只能通过固定 URL /admin 访问 -->
+            <!-- <router-link class="mobile-admin-link" to="/admin">登录管理后台</router-link> -->
             <button class="mobile-icon-button" type="button" @click="() => openCreate()">
               <el-icon><Plus /></el-icon>
             </button>
@@ -302,7 +304,7 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calendar, Files, Plus, Search } from '@element-plus/icons-vue'
 import EventDetail from '../../components/EventDetail.vue'
 import EventForm from '../../components/EventForm.vue'
-import { api } from '../../api/http'
+import { api, downloadFile } from '../../api/http'
 import type { CalendarItem, EventItem } from '../../api/types'
 import { useAppStore } from '../../stores/app'
 
@@ -492,16 +494,23 @@ function moveMonth(step: number) {
 
 function timeText(event: EventItem) {
   if (event.all_day) return '全天'
-  return `${new Date(event.start_time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} - ${new Date(event.end_time).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
+  const startStr = event.start_at || event.start_time
+  const endStr = event.end_at || event.end_time
+  return `${new Date(startStr!).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} - ${new Date(endStr!).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 function eventsByDay(day: Date) {
-  return filteredEvents.value.filter((event) => isSameDate(new Date(event.start_time), day)).slice(0, 4)
+  return filteredEvents.value.filter((event) => {
+    const startStr = event.start_at || event.start_time
+    return isSameDate(new Date(startStr!), day)
+  }).slice(0, 4)
 }
 
 function eventStyle(event: EventItem) {
-  const start = new Date(event.start_time)
-  const end = new Date(event.end_time)
+  const startStr = event.start_at || event.start_time
+  const endStr = event.end_at || event.end_time
+  const start = new Date(startStr!)
+  const end = new Date(endStr!)
   const top = Math.max(0, (start.getHours() - 8) * 72 + start.getMinutes() * 1.2)
   const height = Math.max(42, (end.getTime() - start.getTime()) / 60000 * 1.2)
   const color = event.calendar_color || event.tag_color || '#2f7cf6'
@@ -529,10 +538,10 @@ function isSameDate(a: Date, b: Date) {
 
 async function exportEvents() {
   try {
-    await api.post('/export/events', { operatorUserId: store.currentUserId })
-    ElMessage.success('导出任务已创建')
-  } catch {
-    ElMessage.success('导出任务已创建')
+    await downloadFile('/export/events', { operatorUserId: store.currentUserId })
+    ElMessage.success('导出成功')
+  } catch (err) {
+    ElMessage.error('导出失败：' + (err as Error).message)
   }
 }
 </script>

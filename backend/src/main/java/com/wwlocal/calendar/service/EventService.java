@@ -251,7 +251,7 @@ public class EventService {
    * If rrule is null/blank, delete any existing recurrence.
    */
   private void replaceRecurrence(long eventId, Map<String, Object> payload) {
-    String rrule = (String) payload.get("rrule");
+    String rrule = (String) payload.getOrDefault("rrule", payload.get("recurrence_rule"));
     if (rrule == null || rrule.isBlank()) {
       jdbc.update("DELETE FROM event_recurrence WHERE event_id = ?", eventId);
       return;

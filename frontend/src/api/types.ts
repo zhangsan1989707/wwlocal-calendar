@@ -39,14 +39,18 @@ export interface EventItem {
   tag_id?: number
   tag_name?: string
   tag_color?: string
-  start_at: string
-  end_at: string
+  start_at?: string
+  end_at?: string
+  start_time?: string
+  end_time?: string
   all_day: boolean
   timezone?: string
   visibility?: string
   calendar_name?: string
   calendar_color?: string
   status: string
+  recurrence_rule?: string
+  allow_join?: boolean
 }
 
 export interface TagColor {

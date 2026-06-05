@@ -243,8 +243,10 @@ watch(
       allow_join: props.event?.allow_join ?? false,
       status: 'ACTIVE'
     })
-    const start = props.event ? new Date(props.event.start_at) : new Date(props.initialStart ?? new Date(2026, 5, 5, 11, 30))
-    const end = props.event ? new Date(props.event.end_at) : new Date(props.initialEnd ?? new Date(start.getTime() + 60 * 60 * 1000))
+    const startStr = props.event?.start_at || props.event?.start_time
+    const endStr = props.event?.end_at || props.event?.end_time
+    const start = props.event ? new Date(startStr!) : new Date(props.initialStart ?? new Date(2026, 5, 5, 11, 30))
+    const end = props.event ? new Date(endStr!) : new Date(props.initialEnd ?? new Date(start.getTime() + 60 * 60 * 1000))
     startDate.value = start
     endDate.value = end
     startTime.value = formatTime(start)

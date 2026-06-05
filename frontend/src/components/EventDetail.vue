@@ -3,7 +3,7 @@
     <template v-if="event">
       <h2>{{ event.title }}</h2>
       <div class="meta">
-        <span>{{ format(event.start_time) }} 至 {{ format(event.end_time) }}</span>
+        <span>{{ format(event.start_at || event.start_time) }} 至 {{ format(event.end_at || event.end_time) }}</span>
         <span>{{ event.calendar_name }}</span>
         <span v-if="event.location">{{ event.location }}</span>
       </div>
@@ -43,8 +43,8 @@ const visible = computed({
   set: (value) => emit('update:modelValue', value)
 })
 
-function format(value: string) {
-  return new Date(value).toLocaleString('zh-CN', { hour12: false })
+function format(value?: string) {
+  return value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : ''
 }
 
 async function respond(status: string) {
