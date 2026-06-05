@@ -120,20 +120,20 @@ public class MasterDataController {
 
   @GetMapping("/tags")
   public ApiResponse<List<Map<String, Object>>> tags() {
-    return ApiResponse.ok(crud.list("tag_color", Set.of("status"), Map.of(), "sort_order ASC, id ASC"));
+    return ApiResponse.ok(crud.list("calendar_tag", Set.of("status"), Map.of(), "sort_order ASC, id ASC"));
   }
 
   @PostMapping("/tags")
   public ApiResponse<Map<String, Object>> createTag(@RequestBody Map<String, Object> payload) {
-    var row = crud.create("tag_color", TAG_COLUMNS, payload);
-    audit.record(number(payload.get("operatorUserId")), "TAG", "CREATE", "tag_color", row.get("id"), "标签颜色已新增");
+    var row = crud.create("calendar_tag", TAG_COLUMNS, payload);
+    audit.record(number(payload.get("operatorUserId")), "TAG", "CREATE", "calendar_tag", row.get("id"), "标签颜色已新增");
     return ApiResponse.ok(row);
   }
 
   @PutMapping("/tags/{id}")
   public ApiResponse<Map<String, Object>> updateTag(@PathVariable long id, @RequestBody Map<String, Object> payload) {
-    var row = crud.update("tag_color", TAG_COLUMNS, id, payload);
-    audit.record(number(payload.get("operatorUserId")), "TAG", "UPDATE", "tag_color", id, "标签颜色已更新");
+    var row = crud.update("calendar_tag", TAG_COLUMNS, id, payload);
+    audit.record(number(payload.get("operatorUserId")), "TAG", "UPDATE", "calendar_tag", id, "标签颜色已更新");
     return ApiResponse.ok(row);
   }
 
