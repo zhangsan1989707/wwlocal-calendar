@@ -8,4 +8,8 @@ public record ApiResponse<T>(boolean success, T data, String message) {
   public static ApiResponse<Void> ok() {
     return new ApiResponse<>(true, null, "OK");
   }
+
+  public static <T> ApiResponse<T> fail(String message) {
+    return new ApiResponse<>(false, null, message);
+  }
 }

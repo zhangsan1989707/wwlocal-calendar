@@ -75,18 +75,21 @@ const fields = computed(() => fieldMap[props.resource] || []);
 const resourceMeta = computed(() => metaMap[props.resource] || { eyebrow: 'Resource', description: '查看和维护系统基础数据。' });
 
 const statusOptions = [
-  { label: '启用', value: 'ACTIVE' },
-  { label: '停用', value: 'INACTIVE' }
+  { label: '启用', value: 'active' },
+  { label: '停用', value: 'inactive' }
+];
+const enabledOptions = [
+  { label: '启用', value: true },
+  { label: '停用', value: false }
 ];
 const calendarTypeOptions = [
   { label: '个人日历', value: 'PERSONAL' },
   { label: '共享日历', value: 'SHARED' },
   { label: '公共日历', value: 'PUBLIC' }
 ];
-const visibilityOptions = [
-  { label: '个人', value: 'PRIVATE' },
-  { label: '共享', value: 'SHARED' },
-  { label: '公开', value: 'PUBLIC' }
+const visibleOptions = [
+  { label: '可见', value: true },
+  { label: '不可见', value: false }
 ];
 
 const defaultColumns = [
@@ -113,21 +116,21 @@ const columnMap: Record<string, Array<{ prop: string; label: string }>> = {
     { prop: 'name', label: '姓名' },
     { prop: 'department_id', label: '部门编号' },
     { prop: 'email', label: '邮箱' },
-    { prop: 'phone', label: '手机号' },
+    { prop: 'mobile', label: '手机号' },
     { prop: 'status', label: '状态' }
   ],
   departments: [
     { prop: 'id', label: '编号' },
     { prop: 'name', label: '部门名称' },
     { prop: 'sort_order', label: '排序' },
-    { prop: 'status', label: '状态' }
+    { prop: 'enabled', label: '启用状态' }
   ],
   calendars: [
     { prop: 'id', label: '编号' },
     { prop: 'name', label: '日历名称' },
     { prop: 'type', label: '类型' },
     { prop: 'color', label: '颜色' },
-    { prop: 'status', label: '状态' }
+    { prop: 'visible', label: '可见性' }
   ],
   events: [
     { prop: 'id', label: '编号' },
@@ -180,22 +183,20 @@ const fieldMap: Record<string, Array<any>> = {
     { key: 'name', label: '姓名', type: 'text', required: true },
     { key: 'department_id', label: '部门编号', type: 'number' },
     { key: 'email', label: '邮箱', type: 'text' },
-    { key: 'phone', label: '手机号', type: 'text' },
-    { key: 'avatar_color', label: '头像颜色', type: 'color' },
+    { key: 'mobile', label: '手机号', type: 'text' },
     { key: 'status', label: '状态', type: 'select', options: statusOptions }
   ],
   departments: [
     { key: 'name', label: '部门名称', type: 'text', required: true },
     { key: 'sort_order', label: '排序', type: 'number' },
-    { key: 'status', label: '状态', type: 'select', options: statusOptions }
+    { key: 'enabled', label: '启用', type: 'select', options: enabledOptions }
   ],
   calendars: [
     { key: 'name', label: '日历名称', type: 'text', required: true },
     { key: 'description', label: '日历描述', type: 'textarea' },
     { key: 'type', label: '类型', type: 'select', options: calendarTypeOptions },
     { key: 'color', label: '颜色', type: 'color' },
-    { key: 'visibility', label: '展示范围', type: 'select', options: visibilityOptions },
-    { key: 'status', label: '状态', type: 'select', options: statusOptions }
+    { key: 'visible', label: '可见', type: 'select', options: visibleOptions }
   ]
 };
 
@@ -214,7 +215,7 @@ async function load() {
 function openCreate() {
   editing.value = null;
   Object.keys(form).forEach((key) => delete form[key]);
-  Object.assign(form, { status: 'ACTIVE', color: '#3b82f6', avatar_color: '#3b82f6', type: 'PUBLIC', visibility: 'PUBLIC' });
+  Object.assign(form, { status: 'active', color: '#3b82f6', type: 'PUBLIC', visible: true, enabled: true });
   dialogVisible.value = true;
 }
 

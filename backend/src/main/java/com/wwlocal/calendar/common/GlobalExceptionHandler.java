@@ -1,5 +1,6 @@
 package com.wwlocal.calendar.common;
 
+import com.wwlocal.calendar.api.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
