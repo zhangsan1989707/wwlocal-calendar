@@ -49,7 +49,7 @@ public class OpsController {
         SELECT a.*, e.title AS event_title, u.name AS uploader_name
         FROM event_attachment a
         LEFT JOIN event e ON e.id = a.event_id
-        LEFT JOIN sys_user u ON u.id = a.uploaded_by
+        LEFT JOIN users u ON u.id = a.uploaded_by
         ORDER BY a.id DESC
         """));
   }
@@ -161,10 +161,10 @@ public class OpsController {
   @GetMapping("/admin/overview")
   public ApiResponse<Map<String, Object>> overview() {
     var data = new LinkedHashMap<String, Object>();
-    data.put("users", count("sys_user"));
-    data.put("departments", count("sys_department"));
-    data.put("calendars", count("calendar"));
-    data.put("allCalendars", jdbc.queryForObject("SELECT count(*) FROM calendar WHERE type = 'ALL_MEMBER'", Long.class));
+    data.put("users", count("users"));
+    data.put("departments", count("departments"));
+    data.put("calendars", count("calendars"));
+    data.put("allCalendars", jdbc.queryForObject("SELECT count(*) FROM calendars WHERE type = 'ALL_MEMBER'", Long.class));
     data.put("events", count("event"));
     data.put("attachments", count("event_attachment"));
     data.put("todos", count("event_todo"));

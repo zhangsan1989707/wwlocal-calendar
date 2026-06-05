@@ -32,7 +32,7 @@ public class CalendarService {
         FROM calendar c
         LEFT JOIN calendar_auto_subscribe_scope s ON s.calendar_id = c.id
         LEFT JOIN calendar_shared_member m ON m.calendar_id = c.id
-        LEFT JOIN sys_user u ON u.id = m.user_id
+        LEFT JOIN users u ON u.id = m.user_id
         WHERE c.type = 'ALL_MEMBER'
         GROUP BY c.id
         ORDER BY c.id DESC
@@ -45,20 +45,20 @@ public class CalendarService {
     payload.put("type", "ALL_MEMBER");
     payload.putIfAbsent("visibility", "ALL");
     Map<String, Object> calendar = id == null
-        ? crud.create("calendar", CALENDAR_COLUMNS, payload)
-        : crud.update("calendar", CALENDAR_COLUMNS, ((Number) id).longValue(), payload);
+        ? crud.create("calendars", CALENDAR_COLUMNS, payload)
+        : crud.update("calendars", CALENDAR_COLUMNS, ((Number) id).longValue(), payload);
     long calendarId = ((Number) calendar.get("id")).longValue();
     replaceScopes(calendarId, (List<?>) payload.get("scopes"));
     replaceMembers(calendarId, (List<?>) payload.get("sharedMemberIds"));
     audit.record(number(payload.get("operatorUserId")), "ALL_CALENDAR", id == null ? "CREATE" : "UPDATE",
-        "calendar", calendarId, "全员日历已保存");
+        "calendars", calendarId, "全员日历已保存");
     return calendar;
   }
 
   @Transactional
   public void disableAllCalendar(long id, Long operatorUserId) {
-    crud.disable("calendar", id);
-    audit.record(operatorUserId, "ALL_CALENDAR", "DISABLE", "calendar", id, "全员日历已停用");
+    crud.disable("calendars", id);
+    audit.record(operatorUserId, "ALL_CALENDAR", "DISABLE", "calendars", id, "全员日历已停用");
   }
 
   private void replaceScopes(long calendarId, List<?> scopes) {
