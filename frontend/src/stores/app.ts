@@ -1,15 +1,15 @@
 import { defineStore } from 'pinia'
 import { api } from '../api/http'
-import type { CalendarItem, Department, EventItem, TagColor, User } from '../api/types'
+import type { User, Department, CalendarItem, CalendarTag, EventItem } from '../api/types'
 
 export const useAppStore = defineStore('app', {
   state: () => ({
     users: [] as User[],
     departments: [] as Department[],
     calendars: [] as CalendarItem[],
-    tags: [] as TagColor[],
+    tags: [] as CalendarTag[],
     events: [] as EventItem[],
-    currentUserId: 1
+    currentUserId: '' as string
   }),
   getters: {
     currentUser: (state) => state.users.find((item) => item.id === state.currentUserId)
@@ -21,7 +21,7 @@ export const useAppStore = defineStore('app', {
           api.get<User[]>('/users'),
           api.get<Department[]>('/departments'),
           api.get<CalendarItem[]>('/calendars'),
-          api.get<TagColor[]>('/tags')
+          api.get<CalendarTag[]>('/tags')
         ])
         this.users = users
         this.departments = departments

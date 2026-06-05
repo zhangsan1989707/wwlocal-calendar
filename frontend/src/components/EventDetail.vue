@@ -20,7 +20,7 @@
             </div>
             <div class="meta-content">
               <span class="meta-label">时间</span>
-              <span class="meta-value">{{ format(event.start_at || event.start_time) }} - {{ format(event.end_at || event.end_time) }}</span>
+              <span class="meta-value">{{ format(event.start_at) }} - {{ format(event.end_at) }}</span>
               <span v-if="event.all_day" class="meta-tag">全天</span>
             </div>
           </div>
@@ -96,7 +96,7 @@ import type { EventItem } from '../api/types'
 const props = defineProps<{
   modelValue: boolean
   event?: EventItem | null
-  currentUserId: number
+  currentUserId: string
 }>()
 
 const emit = defineEmits<{

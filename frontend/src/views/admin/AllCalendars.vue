@@ -95,27 +95,29 @@ const departments = ref<Department[]>([]);
 const dialogVisible = ref(false);
 const form = reactive<Record<string, any>>({});
 const scopeType = ref('ALL_COMPANY');
-const scopeDepartmentIds = ref<number[]>([]);
-const scopeUserIds = ref<number[]>([]);
-const sharedMemberIds = ref<number[]>([]);
+const scopeDepartmentIds = ref<string[]>([]);
+const scopeUserIds = ref<string[]>([]);
+const sharedMemberIds = ref<string[]>([]);
 const showScopeSelect = ref(false);
 const showMemberSelect = ref(false);
 const sharedSelectRef = ref();
 const localRows: CalendarItem[] = [
   {
-    id: -1,
+    id: 'local-1',
     name: '产品发布日历',
     description: '统一管理产品发布、评审和上线安排。',
     type: 'ALL_MEMBER',
     color: '#3b82f6',
+    visible: true,
     status: 'ACTIVE'
   },
   {
-    id: -2,
+    id: 'local-2',
     name: '城市运营日历',
     description: '面向全员同步重点运营节点。',
     type: 'ALL_MEMBER',
     color: '#60a5fa',
+    visible: true,
     status: 'ACTIVE'
   }
 ];
@@ -142,7 +144,7 @@ async function load() {
 
 function openCreate() {
   Object.keys(form).forEach((key) => delete form[key]);
-  Object.assign(form, { name: '', description: '', color: '#f59e0b', status: 'ACTIVE' });
+  Object.assign(form, { name: '', description: '', color: '#f59e0b', visible: true, status: 'ACTIVE' });
   scopeType.value = 'ALL_COMPANY';
   scopeDepartmentIds.value = [];
   scopeUserIds.value = [];
@@ -168,7 +170,7 @@ async function save() {
   const scopes = buildScopes();
   const payload = { ...form, scopes, sharedMemberIds: sharedMemberIds.value };
   try {
-    if (form.id && form.id > 0) {
+    if (form.id && !form.id.toString().startsWith('local-')) {
       await api.put(`/all-calendars/${form.id}`, payload);
     } else if (!form.id) {
       await api.post('/all-calendars', payload);
@@ -183,7 +185,7 @@ async function save() {
 
 async function disable(row: CalendarItem) {
   await ElMessageBox.confirm('确认停用该全员日历？');
-  if (row.id > 0) {
+  if (!row.id.toString().startsWith('local-')) {
     await api.post(`/all-calendars/${row.id}/disable`, {});
   }
   ElMessage.success('已停用');
@@ -201,11 +203,11 @@ function focusSharedSelect() {
   setTimeout(() => sharedSelectRef.value?.focus?.());
 }
 
-function removeSharedMember(id: number) {
+function removeSharedMember(id: string) {
   sharedMemberIds.value = sharedMemberIds.value.filter((item) => item !== id);
 }
 
-function userName(id: number) {
+function userName(id: string) {
   return users.value.find((item) => item.id === id)?.name ?? `成员${id}`;
 }
 </script>

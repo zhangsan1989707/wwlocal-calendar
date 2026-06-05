@@ -70,9 +70,6 @@
               <el-option label="每年" value="FREQ=YEARLY;INTERVAL=1" />
             </el-select>
           </el-form-item>
-          <el-form-item>
-            <el-checkbox v-model="form.allow_join">允许成员主动加入</el-checkbox>
-          </el-form-item>
         </el-form>
       </section>
 
@@ -116,15 +113,15 @@ import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
 import { api } from '../api/http'
-import type { CalendarItem, EventItem, TagColor, User } from '../api/types'
+import type { CalendarItem, EventItem, CalendarTag, User } from '../api/types'
 
 const props = defineProps<{
   modelValue: boolean
   event?: EventItem | null
   calendars: CalendarItem[]
   users: User[]
-  tags: TagColor[]
-  currentUserId: number
+  tags: CalendarTag[]
+  currentUserId: string
   initialStart?: Date | null
   initialEnd?: Date | null
 }>()
@@ -140,8 +137,8 @@ const visible = computed({
 })
 
 const form = reactive<Record<string, any>>({})
-const participantIds = ref<number[]>([])
-const todos = ref<Array<{ title: string; assigneeUserId?: number; priority: string; completed: boolean }>>([])
+const participantIds = ref<string[]>([])
+const todos = ref<Array<{ title: string; assigneeUserId?: string; priority: string; completed: boolean }>>([])
 const startDate = ref(new Date())
 const endDate = ref(new Date())
 const startTime = ref('11:30')
@@ -156,7 +153,7 @@ const availabilityTitle = computed(() => {
 
 // Busy slots from freebusy API
 interface BusySlot {
-  id: number
+  id: string
   title: string
   start_at: string
   end_at: string
@@ -167,7 +164,7 @@ interface BusySlot {
 const busySlots = ref<BusySlot[]>([])
 
 const availabilityMembers = computed(() => {
-  const members: Array<{ id: number; name: string }> = [
+  const members: Array<{ id: string; name: string }> = [
     { id: props.currentUserId, name: '我' }
   ]
   for (const pid of participantIds.value) {
@@ -240,11 +237,10 @@ watch(
       tag_id: props.event?.tag_id ?? undefined,
       all_day: props.event?.all_day ?? false,
       recurrence_rule: props.event?.recurrence_rule ?? '',
-      allow_join: props.event?.allow_join ?? false,
       status: 'ACTIVE'
     })
-    const startStr = props.event?.start_at || props.event?.start_time
-    const endStr = props.event?.end_at || props.event?.end_time
+    const startStr = props.event?.start_at
+    const endStr = props.event?.end_at
     const start = props.event ? new Date(startStr!) : new Date(props.initialStart ?? new Date(2026, 5, 5, 11, 30))
     const end = props.event ? new Date(endStr!) : new Date(props.initialEnd ?? new Date(start.getTime() + 60 * 60 * 1000))
     startDate.value = start
@@ -305,7 +301,7 @@ async function submit() {
     operatorUserId: props.currentUserId
   }
   try {
-    if (form.id && form.id > 0) {
+    if (form.id) {
       await api.put(`/events/${form.id}`, payload)
     } else {
       await api.post('/events', payload)

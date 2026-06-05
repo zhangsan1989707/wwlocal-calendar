@@ -7,23 +7,24 @@
       <el-form-item label="描述">
         <el-input v-model="form.description" type="textarea" :rows="3" placeholder="请输入描述" />
       </el-form-item>
-      <el-form-item label="自动订阅范围">
-        <el-select v-model="form.autoSubscribeScope" multiple filterable allow-create class="full-width">
-          <el-option v-for="scope in scopes" :key="scope" :label="scope" :value="scope" />
-        </el-select>
-      </el-form-item>
-      <el-form-item label="共享成员">
-        <el-select v-model="form.sharedMembers" multiple filterable allow-create class="full-width">
-          <el-option v-for="member in members" :key="member" :label="member" :value="member" />
+      <el-form-item label="类型">
+        <el-select v-model="form.type" class="full-width">
+          <el-option label="个人日历" value="PERSONAL" />
+          <el-option label="共享日历" value="SHARED" />
+          <el-option label="公共日历" value="PUBLIC" />
+          <el-option label="全员日历" value="ALL_MEMBER" />
         </el-select>
       </el-form-item>
       <el-form-item label="颜色">
         <el-color-picker v-model="form.color" />
       </el-form-item>
+      <el-form-item label="可见性">
+        <el-switch v-model="form.visible" active-text="可见" inactive-text="隐藏" />
+      </el-form-item>
       <el-form-item label="状态">
         <el-radio-group v-model="form.status">
-          <el-radio-button label="enabled">启用</el-radio-button>
-          <el-radio-button label="disabled">停用</el-radio-button>
+          <el-radio-button label="ACTIVE">启用</el-radio-button>
+          <el-radio-button label="INACTIVE">停用</el-radio-button>
         </el-radio-group>
       </el-form-item>
     </el-form>
@@ -36,7 +37,7 @@
 
 <script setup lang="ts">
 import { reactive, ref, watch } from 'vue';
-import type { CalendarItem, CalendarStatus } from '@/types/calendar';
+import type { CalendarItem } from '@/api/types';
 
 const props = defineProps<{
   modelValue: boolean;
@@ -49,17 +50,15 @@ const emit = defineEmits<{
 }>();
 
 const visible = ref(props.modelValue);
-const members = ['李宇航', '周明', '陈晓', '王宁'];
-const scopes = ['全公司', '销售中心', '运营部', '产品部', '成都市'];
 const form = reactive({
   id: '',
   name: '',
   description: '',
-  autoSubscribeScope: [] as string[],
-  sharedMembers: [] as string[],
+  type: 'ALL_MEMBER' as 'PERSONAL' | 'SHARED' | 'PUBLIC' | 'ALL_MEMBER',
   color: '#2f7cf6',
-  status: 'enabled' as CalendarStatus,
-  owner: '系统管理员'
+  visible: true,
+  status: 'ACTIVE',
+  owner_user_id: ''
 });
 
 watch(
@@ -77,11 +76,11 @@ function resetForm() {
   form.id = calendar?.id || '';
   form.name = calendar?.name || '';
   form.description = calendar?.description || '';
-  form.autoSubscribeScope = [...(calendar?.autoSubscribeScope || [])];
-  form.sharedMembers = [...(calendar?.sharedMembers || [])];
+  form.type = calendar?.type || 'ALL_MEMBER';
   form.color = calendar?.color || '#2f7cf6';
-  form.status = calendar?.status || 'enabled';
-  form.owner = calendar?.owner || '系统管理员';
+  form.visible = calendar?.visible ?? true;
+  form.status = calendar?.status || 'ACTIVE';
+  form.owner_user_id = calendar?.owner_user_id || '';
 }
 
 function submit() {
@@ -89,11 +88,11 @@ function submit() {
     id: form.id || `cal-${Date.now()}`,
     name: form.name || '未命名日历',
     description: form.description,
-    autoSubscribeScope: [...form.autoSubscribeScope],
-    sharedMembers: [...form.sharedMembers],
+    type: form.type,
     color: form.color,
+    visible: form.visible,
     status: form.status,
-    owner: form.owner
+    owner_user_id: form.owner_user_id
   });
   visible.value = false;
 }

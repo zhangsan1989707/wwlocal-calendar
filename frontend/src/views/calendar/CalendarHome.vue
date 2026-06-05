@@ -321,7 +321,7 @@
       :calendars="formCalendars"
       :users="store.users"
       :tags="store.tags"
-      :current-user-id="store.currentUserId"
+      :currentUserId="store.currentUserId"
       :initial-start="createStart"
       :initial-end="createEnd"
       @saved="reload"
@@ -329,7 +329,7 @@
     <EventDetail
       v-model="detailVisible"
       :event="selectedEvent"
-      :current-user-id="store.currentUserId"
+      :currentUserId="store.currentUserId"
       @edit="editEvent"
       @remove="removeEvent"
     />
@@ -365,7 +365,7 @@ const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
 const weekdayShortLabels = ['日', '一', '二', '三', '四', '五', '六']
 const hours = Array.from({ length: 11 }, (_, index) => index + 8)
-const visibleCalendarIds = ref<number[]>([])
+const visibleCalendarIds = ref<string[]>([])
 const formVisible = ref(false)
 const detailVisible = ref(false)
 const editingEvent = ref<EventItem | null>(null)
@@ -377,32 +377,32 @@ const mobileCalendarSheetVisible = ref(false)
 const mobileViewMode = ref<'day' | 'three' | 'week'>('day')
 
 const localCalendars: CalendarItem[] = [
-  { id: -1, name: '李宇航的日历', type: 'PERSONAL', color: '#3b82f6', status: 'ACTIVE' },
-  { id: -2, name: '产品发布日历', type: 'SHARED', color: '#f59e0b', status: 'ACTIVE' },
-  { id: -3, name: '部门协作日历', type: 'SHARED', color: '#ef4444', status: 'ACTIVE' },
-  { id: -4, name: '项目日程', type: 'SHARED', color: '#10b981', status: 'ACTIVE' }
+  { id: 'local-1', name: '李宇航的日历', type: 'PERSONAL', color: '#3b82f6', visible: true, status: 'ACTIVE' },
+  { id: 'local-2', name: '产品发布日历', type: 'SHARED', color: '#f59e0b', visible: true, status: 'ACTIVE' },
+  { id: 'local-3', name: '部门协作日历', type: 'SHARED', color: '#ef4444', visible: true, status: 'ACTIVE' },
+  { id: 'local-4', name: '项目日程', type: 'SHARED', color: '#10b981', visible: true, status: 'ACTIVE' }
 ]
 
 const localEvents: EventItem[] = [
   {
-    id: -1,
-    calendar_id: -2,
-    organizer_user_id: 1,
+    id: 'local-1',
+    calendar_id: 'local-2',
+    organizer_user_id: 'user-001',
     title: '版本发布评审',
-    start_time: new Date(2026, 5, 5, 11, 30).toISOString(),
-    end_time: new Date(2026, 5, 5, 12, 30).toISOString(),
+    start_at: new Date(2026, 5, 5, 11, 30).toISOString(),
+    end_at: new Date(2026, 5, 5, 12, 30).toISOString(),
     all_day: false,
     calendar_name: '产品发布日历',
     calendar_color: '#3b82f6',
     status: 'ACTIVE'
   },
   {
-    id: -2,
-    calendar_id: -4,
-    organizer_user_id: 1,
+    id: 'local-2',
+    calendar_id: 'local-4',
+    organizer_user_id: 'user-001',
     title: '端午节',
-    start_time: new Date(2026, 5, 19, 9, 0).toISOString(),
-    end_time: new Date(2026, 5, 19, 18, 0).toISOString(),
+    start_at: new Date(2026, 5, 19, 9, 0).toISOString(),
+    end_at: new Date(2026, 5, 19, 18, 0).toISOString(),
     all_day: true,
     calendar_name: '项目日程',
     calendar_color: '#10b981',
@@ -502,7 +502,7 @@ async function removeEvent(event: EventItem) {
     return
   }
   try {
-    if (event.id > 0) {
+    if (event.id && !event.id.toString().startsWith('local-')) {
       await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
     }
     ElMessage.success('已删除')
@@ -531,23 +531,18 @@ function moveMonth(step: number) {
 
 function timeText(event: EventItem) {
   if (event.all_day) return '全天'
-  const startStr = event.start_at || event.start_time
-  const endStr = event.end_at || event.end_time
-  return `${new Date(startStr!).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} - ${new Date(endStr!).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
+  return `${new Date(event.start_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })} - ${new Date(event.end_at).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}`
 }
 
 function eventsByDay(day: Date) {
   return filteredEvents.value.filter((event) => {
-    const startStr = event.start_at || event.start_time
-    return isSameDate(new Date(startStr!), day)
+    return isSameDate(new Date(event.start_at), day)
   }).slice(0, 4)
 }
 
 function eventStyle(event: EventItem) {
-  const startStr = event.start_at || event.start_time
-  const endStr = event.end_at || event.end_time
-  const start = new Date(startStr!)
-  const end = new Date(endStr!)
+  const start = new Date(event.start_at)
+  const end = new Date(event.end_at)
   const top = Math.max(0, (start.getHours() - 8) * 72 + start.getMinutes() * 1.2)
   const height = Math.max(42, (end.getTime() - start.getTime()) / 60000 * 1.2)
   const color = event.calendar_color || event.tag_color || 'var(--calendar-primary)'
