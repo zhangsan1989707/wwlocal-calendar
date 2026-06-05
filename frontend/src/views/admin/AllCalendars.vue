@@ -1,7 +1,8 @@
 <template>
-  <div>
-    <div class="toolbar all-calendar-toolbar">
+  <div class="admin-page">
+    <div class="admin-page-head">
       <div>
+        <span>Calendars</span>
         <h1>全员日历</h1>
         <p>可创建全员日历，统一安排企业日程。</p>
       </div>
@@ -14,7 +15,13 @@
         <el-table-column prop="color" label="颜色" width="100">
           <template #default="{ row }"><span class="color" :style="{ background: row.color }" /></template>
         </el-table-column>
-        <el-table-column prop="status" label="状态" width="100" />
+        <el-table-column prop="status" label="状态" width="100">
+          <template #default="{ row }">
+            <span class="status-chip" :class="{ inactive: row.status !== 'ACTIVE' }">
+              {{ row.status }}
+            </span>
+          </template>
+        </el-table-column>
         <el-table-column prop="created_at" label="创建时间" min-width="180" />
         <el-table-column label="操作" width="180" fixed="right">
           <template #default="{ row }">
@@ -42,14 +49,14 @@
             <el-option v-for="item in users" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
           <div v-if="sharedMemberIds.length" class="selected-members">
-            <el-tag v-for="id in sharedMemberIds" :key="id" closable @close="removeSharedMember(id)">
+            <el-tag v-for="id in sharedMemberIds" :key="id" closable @close="removeSharedMember(id)" type="primary" effect="light">
               {{ userName(id) }}
             </el-tag>
           </div>
         </el-form-item>
         <el-form-item label="自动订阅范围" required>
           <div class="scope-row">
-            <span class="scope-badge">成都市</span>
+            <span class="scope-badge">全公司</span>
             <el-button link type="primary" @click="showScopeSelect = !showScopeSelect">修改</el-button>
           </div>
           <div v-if="showScopeSelect" class="scope-selectors">
@@ -69,38 +76,38 @@
         </el-form-item>
       </el-form>
       <template #footer>
-        <el-button type="primary" @click="save">保存</el-button>
         <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="save">保存</el-button>
       </template>
     </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { api } from '../../api/http'
-import type { CalendarItem, Department, User } from '../../api/types'
+import { computed, onMounted, reactive, ref } from 'vue';
+import { ElMessage, ElMessageBox } from 'element-plus';
+import { api } from '../../api/http';
+import type { CalendarItem, Department, User } from '../../api/types';
 
-const rows = ref<CalendarItem[]>([])
-const users = ref<User[]>([])
-const departments = ref<Department[]>([])
-const dialogVisible = ref(false)
-const form = reactive<Record<string, any>>({})
-const scopeType = ref('ALL_COMPANY')
-const scopeDepartmentIds = ref<number[]>([])
-const scopeUserIds = ref<number[]>([])
-const sharedMemberIds = ref<number[]>([])
-const showScopeSelect = ref(false)
-const showMemberSelect = ref(false)
-const sharedSelectRef = ref()
+const rows = ref<CalendarItem[]>([]);
+const users = ref<User[]>([]);
+const departments = ref<Department[]>([]);
+const dialogVisible = ref(false);
+const form = reactive<Record<string, any>>({});
+const scopeType = ref('ALL_COMPANY');
+const scopeDepartmentIds = ref<number[]>([]);
+const scopeUserIds = ref<number[]>([]);
+const sharedMemberIds = ref<number[]>([]);
+const showScopeSelect = ref(false);
+const showMemberSelect = ref(false);
+const sharedSelectRef = ref();
 const localRows: CalendarItem[] = [
   {
     id: -1,
     name: '产品发布日历',
     description: '统一管理产品发布、评审和上线安排。',
     type: 'ALL_MEMBER',
-    color: '#2f7cf6',
+    color: '#3b82f6',
     status: 'ACTIVE'
   },
   {
@@ -108,13 +115,13 @@ const localRows: CalendarItem[] = [
     name: '城市运营日历',
     description: '面向全员同步重点运营节点。',
     type: 'ALL_MEMBER',
-    color: '#3f6fa8',
+    color: '#60a5fa',
     status: 'ACTIVE'
   }
-]
-const tableRows = computed(() => (rows.value.length ? rows.value : localRows))
+];
+const tableRows = computed(() => (rows.value.length ? rows.value : localRows));
 
-onMounted(load)
+onMounted(load);
 
 async function load() {
   try {
@@ -122,137 +129,197 @@ async function load() {
       api.get<CalendarItem[]>('/all-calendars'),
       api.get<User[]>('/users'),
       api.get<Department[]>('/departments')
-    ])
-    rows.value = calendarRows
-    users.value = userRows
-    departments.value = departmentRows
+    ]);
+    rows.value = calendarRows;
+    users.value = userRows;
+    departments.value = departmentRows;
   } catch {
-    rows.value = []
-    users.value = []
-    departments.value = []
+    rows.value = [];
+    users.value = [];
+    departments.value = [];
   }
 }
 
 function openCreate() {
-  Object.keys(form).forEach((key) => delete form[key])
-  Object.assign(form, { name: '', description: '', color: '#f59e0b', status: 'ACTIVE' })
-  scopeType.value = 'ALL_COMPANY'
-  scopeDepartmentIds.value = []
-  scopeUserIds.value = []
-  sharedMemberIds.value = []
-  showScopeSelect.value = false
-  showMemberSelect.value = false
-  dialogVisible.value = true
+  Object.keys(form).forEach((key) => delete form[key]);
+  Object.assign(form, { name: '', description: '', color: '#f59e0b', status: 'ACTIVE' });
+  scopeType.value = 'ALL_COMPANY';
+  scopeDepartmentIds.value = [];
+  scopeUserIds.value = [];
+  sharedMemberIds.value = [];
+  showScopeSelect.value = false;
+  showMemberSelect.value = false;
+  dialogVisible.value = true;
 }
 
 function openEdit(row: CalendarItem) {
-  Object.keys(form).forEach((key) => delete form[key])
-  Object.assign(form, row)
-  scopeType.value = 'ALL_COMPANY'
-  scopeDepartmentIds.value = []
-  scopeUserIds.value = []
-  sharedMemberIds.value = []
-  showScopeSelect.value = false
-  showMemberSelect.value = false
-  dialogVisible.value = true
+  Object.keys(form).forEach((key) => delete form[key]);
+  Object.assign(form, row);
+  scopeType.value = 'ALL_COMPANY';
+  scopeDepartmentIds.value = [];
+  scopeUserIds.value = [];
+  sharedMemberIds.value = [];
+  showScopeSelect.value = false;
+  showMemberSelect.value = false;
+  dialogVisible.value = true;
 }
 
 async function save() {
-  const scopes = buildScopes()
-  const payload = { ...form, scopes, sharedMemberIds: sharedMemberIds.value }
+  const scopes = buildScopes();
+  const payload = { ...form, scopes, sharedMemberIds: sharedMemberIds.value };
   try {
     if (form.id && form.id > 0) {
-      await api.put(`/all-calendars/${form.id}`, payload)
+      await api.put(`/all-calendars/${form.id}`, payload);
     } else if (!form.id) {
-      await api.post('/all-calendars', payload)
+      await api.post('/all-calendars', payload);
     }
   } catch {
-    rows.value = rows.value.length ? rows.value : localRows
+    rows.value = rows.value.length ? rows.value : localRows;
   }
-  ElMessage.success('已保存')
-  dialogVisible.value = false
-  await load()
+  ElMessage.success('已保存');
+  dialogVisible.value = false;
+  await load();
 }
 
 async function disable(row: CalendarItem) {
-  await ElMessageBox.confirm('确认停用该全员日历？')
+  await ElMessageBox.confirm('确认停用该全员日历？');
   if (row.id > 0) {
-    await api.post(`/all-calendars/${row.id}/disable`, {})
+    await api.post(`/all-calendars/${row.id}/disable`, {});
   }
-  ElMessage.success('已停用')
-  await load()
+  ElMessage.success('已停用');
+  await load();
 }
 
 function buildScopes() {
-  if (scopeType.value === 'ALL_COMPANY') return [{ scopeType: 'ALL_COMPANY' }]
-  if (scopeType.value === 'MEMBERS') return scopeUserIds.value.map((userId) => ({ scopeType: 'MEMBER', userId }))
-  return scopeDepartmentIds.value.map((departmentId) => ({ scopeType: 'DEPARTMENT', departmentId }))
+  if (scopeType.value === 'ALL_COMPANY') return [{ scopeType: 'ALL_COMPANY' }];
+  if (scopeType.value === 'MEMBERS') return scopeUserIds.value.map((userId) => ({ scopeType: 'MEMBER', userId }));
+  return scopeDepartmentIds.value.map((departmentId) => ({ scopeType: 'DEPARTMENT', departmentId }));
 }
 
 function focusSharedSelect() {
-  showMemberSelect.value = true
-  setTimeout(() => sharedSelectRef.value?.focus?.())
+  showMemberSelect.value = true;
+  setTimeout(() => sharedSelectRef.value?.focus?.());
 }
 
 function removeSharedMember(id: number) {
-  sharedMemberIds.value = sharedMemberIds.value.filter((item) => item !== id)
+  sharedMemberIds.value = sharedMemberIds.value.filter((item) => item !== id);
 }
 
 function userName(id: number) {
-  return users.value.find((item) => item.id === id)?.name ?? `成员${id}`
+  return users.value.find((item) => item.id === id)?.name ?? `成员${id}`;
 }
 </script>
 
 <style scoped>
+.admin-page {
+  padding: 32px;
+}
+
 h1 {
   margin: 0;
 }
 
-.all-calendar-toolbar {
+.admin-page-head {
+  min-height: 88px;
+  display: flex;
   align-items: flex-start;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 20px;
 }
 
-.all-calendar-toolbar p {
+.admin-page-head span {
+  color: var(--calendar-muted);
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.admin-page-head h1 {
+  margin-top: 4px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.admin-page-head p {
   margin: 8px 0 0;
   color: var(--calendar-soft-text);
+  font-weight: 500;
+  font-size: 15px;
 }
 
 .table-panel {
-  padding: 12px;
+  padding: 20px;
+  border: 1px solid var(--calendar-border);
+  border-radius: var(--calendar-radius);
+  background: var(--calendar-surface);
+  box-shadow: var(--calendar-shadow-sm);
 }
 
 .color {
   display: inline-block;
-  width: 18px;
-  height: 18px;
-  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  border-radius: 8px;
+}
+
+.status-chip {
+  min-width: 70px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 12px;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  color: var(--calendar-success);
+  background: #f0fdf4;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.status-chip.inactive {
+  border-color: var(--calendar-border);
+  color: var(--calendar-muted);
+  background: var(--calendar-bg);
 }
 
 .all-calendar-form :deep(.el-form-item) {
-  margin-bottom: 28px;
+  margin-bottom: 24px;
 }
 
 .all-calendar-form :deep(.el-form-item__label) {
   margin-bottom: 8px;
-  color: #555;
-  font-size: 16px;
-  font-weight: 700;
+  color: var(--calendar-text);
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .member-picker {
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  border: 0;
-  color: #174a82;
-  background: transparent;
-  font-size: 18px;
-  font-weight: 700;
+  border: 1px dashed var(--calendar-border);
+  border-radius: 8px;
+  color: var(--calendar-primary);
+  background: var(--calendar-primary-bg);
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.member-picker:hover {
+  border-color: var(--calendar-primary);
+  background: var(--calendar-primary-bg);
 }
 
 .member-picker span {
-  font-size: 28px;
+  font-size: 22px;
   line-height: 1;
 }
 
@@ -279,10 +346,11 @@ h1 {
   align-items: center;
   min-height: 36px;
   padding: 0 14px;
-  border: 1px solid #d8dce4;
-  color: #1f2937;
-  background: #fff;
-  font-weight: 700;
+  border: 1px solid var(--calendar-border);
+  color: var(--calendar-text);
+  background: var(--calendar-surface);
+  font-weight: 600;
+  border-radius: 8px;
 }
 
 .scope-badge::before {
@@ -290,13 +358,25 @@ h1 {
   width: 18px;
   height: 18px;
   margin-right: 8px;
-  border-radius: 3px;
-  background: #7fa4d8;
+  border-radius: 6px;
+  background: var(--calendar-primary);
+  opacity: 0.3;
 }
 
 .scope-selectors {
   display: grid;
-  gap: 10px;
+  gap: 12px;
   margin-top: 12px;
+}
+
+@media (max-width: 900px) {
+  .admin-page {
+    padding: 20px 16px;
+  }
+
+  .admin-page-head {
+    min-height: 0;
+    flex-direction: column;
+  }
 }
 </style>

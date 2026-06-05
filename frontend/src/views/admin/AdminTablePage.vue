@@ -21,7 +21,7 @@
         <el-table-column v-for="column in columns" :key="column.prop" :prop="column.prop" :label="column.label" min-width="140">
           <template #default="{ row }">
             <span v-if="column.prop === 'color'" class="color-cell">
-              <i :style="{ background: row[column.prop] || '#2f7cf6' }" />
+              <i :style="{ background: row[column.prop] || '#3b82f6' }" />
               {{ row[column.prop] || '-' }}
             </span>
             <span v-else-if="column.prop === 'status'" class="status-chip" :class="{ inactive: row[column.prop] !== 'ACTIVE' }">
@@ -38,7 +38,7 @@
       </el-table>
     </section>
 
-    <el-dialog v-model="dialogVisible" :title="editing?.id ? '编辑' : '新增'" width="560px">
+    <el-dialog v-model="dialogVisible" :title="editing?.id ? '编辑' : '新增'" width="560px" class="admin-dialog">
       <el-form :model="form" label-width="96px">
         <el-form-item v-for="field in fields" :key="field.key" :label="field.label" :required="field.required">
           <el-input v-if="field.type === 'text'" v-model="form[field.key]" />
@@ -59,41 +59,41 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
-import { ElMessage } from 'element-plus'
-import { api } from '../../api/http'
+import { computed, onMounted, reactive, ref, watch } from 'vue';
+import { ElMessage } from 'element-plus';
+import { api } from '../../api/http';
 
-const props = defineProps<{ resource: string; title: string }>()
-const rows = ref<Record<string, any>[]>([])
-const dialogVisible = ref(false)
-const editing = ref<Record<string, any> | null>(null)
-const form = reactive<Record<string, any>>({})
+const props = defineProps<{ resource: string; title: string }>();
+const rows = ref<Record<string, any>[]>([]);
+const dialogVisible = ref(false);
+const editing = ref<Record<string, any> | null>(null);
+const form = reactive<Record<string, any>>({});
 
-const canCreate = computed(() => ['users', 'departments', 'calendars'].includes(props.resource))
-const columns = computed(() => columnMap[props.resource] || defaultColumns)
-const fields = computed(() => fieldMap[props.resource] || [])
-const resourceMeta = computed(() => metaMap[props.resource] || { eyebrow: 'Resource', description: '查看和维护系统基础数据。' })
+const canCreate = computed(() => ['users', 'departments', 'calendars'].includes(props.resource));
+const columns = computed(() => columnMap[props.resource] || defaultColumns);
+const fields = computed(() => fieldMap[props.resource] || []);
+const resourceMeta = computed(() => metaMap[props.resource] || { eyebrow: 'Resource', description: '查看和维护系统基础数据。' });
 
 const statusOptions = [
   { label: '启用', value: 'ACTIVE' },
   { label: '停用', value: 'INACTIVE' }
-]
+];
 const calendarTypeOptions = [
   { label: '个人日历', value: 'PERSONAL' },
   { label: '共享日历', value: 'SHARED' },
   { label: '公共日历', value: 'PUBLIC' }
-]
+];
 const visibilityOptions = [
   { label: '个人', value: 'PRIVATE' },
   { label: '共享', value: 'SHARED' },
   { label: '公开', value: 'PUBLIC' }
-]
+];
 
 const defaultColumns = [
   { prop: 'id', label: '编号' },
   { prop: 'status', label: '状态' },
   { prop: 'created_at', label: '创建时间' }
-]
+];
 
 const metaMap: Record<string, { eyebrow: string; description: string }> = {
   users: { eyebrow: 'People', description: '维护系统成员、联系方式与启停状态。' },
@@ -105,7 +105,7 @@ const metaMap: Record<string, { eyebrow: string; description: string }> = {
   'audit-logs': { eyebrow: 'Audit', description: '查看系统近期关键操作记录。' },
   backup: { eyebrow: 'Backup', description: '管理备份恢复记录与执行结果。' },
   settings: { eyebrow: 'Settings', description: '查看系统配置项和值。' }
-}
+};
 
 const columnMap: Record<string, Array<{ prop: string; label: string }>> = {
   users: [
@@ -173,7 +173,7 @@ const columnMap: Record<string, Array<{ prop: string; label: string }>> = {
     { prop: 'description', label: '说明' },
     { prop: 'updated_at', label: '更新时间' }
   ]
-}
+};
 
 const fieldMap: Record<string, Array<any>> = {
   users: [
@@ -197,60 +197,60 @@ const fieldMap: Record<string, Array<any>> = {
     { key: 'visibility', label: '展示范围', type: 'select', options: visibilityOptions },
     { key: 'status', label: '状态', type: 'select', options: statusOptions }
   ]
-}
+};
 
-onMounted(load)
-watch(() => props.resource, load)
+onMounted(load);
+watch(() => props.resource, load);
 
 async function load() {
-  const path = props.resource === 'backup' ? '/backup-records' : `/${props.resource}`
+  const path = props.resource === 'backup' ? '/backup-records' : `/${props.resource}`;
   try {
-    rows.value = await api.get<Record<string, any>[]>(path)
+    rows.value = await api.get<Record<string, any>[]>(path);
   } catch {
-    rows.value = []
+    rows.value = [];
   }
 }
 
 function openCreate() {
-  editing.value = null
-  Object.keys(form).forEach((key) => delete form[key])
-  Object.assign(form, { status: 'ACTIVE', color: '#2563eb', avatar_color: '#2563eb', type: 'PUBLIC', visibility: 'PUBLIC' })
-  dialogVisible.value = true
+  editing.value = null;
+  Object.keys(form).forEach((key) => delete form[key]);
+  Object.assign(form, { status: 'ACTIVE', color: '#3b82f6', avatar_color: '#3b82f6', type: 'PUBLIC', visibility: 'PUBLIC' });
+  dialogVisible.value = true;
 }
 
 function openEdit(row: Record<string, any>) {
-  editing.value = row
-  Object.keys(form).forEach((key) => delete form[key])
-  Object.assign(form, row)
-  dialogVisible.value = true
+  editing.value = row;
+  Object.keys(form).forEach((key) => delete form[key]);
+  Object.assign(form, row);
+  dialogVisible.value = true;
 }
 
 async function save() {
   if (editing.value?.id) {
-    await api.put(`/${props.resource}/${editing.value.id}`, form)
+    await api.put(`/${props.resource}/${editing.value.id}`, form);
   } else {
-    await api.post(`/${props.resource}`, form)
+    await api.post(`/${props.resource}`, form);
   }
-  ElMessage.success('已保存')
-  dialogVisible.value = false
-  await load()
+  ElMessage.success('已保存');
+  dialogVisible.value = false;
+  await load();
 }
 
 async function exportEvents() {
-  await api.post('/export/events', {})
-  ElMessage.success('导出任务已创建')
+  await api.post('/export/events', {});
+  ElMessage.success('导出任务已创建');
 }
 
 async function createBackup() {
-  await api.post('/backup', {})
-  ElMessage.success('备份记录已生成')
-  await load()
+  await api.post('/backup', {});
+  ElMessage.success('备份记录已生成');
+  await load();
 }
 </script>
 
 <style scoped>
 .admin-page {
-  padding: 24px;
+  padding: 32px;
 }
 
 h1 {
@@ -258,94 +258,105 @@ h1 {
 }
 
 .admin-page-head {
-  min-height: 82px;
+  min-height: 88px;
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  gap: 18px;
-  margin-bottom: 16px;
+  gap: 24px;
+  margin-bottom: 20px;
 }
 
 .admin-page-head span {
   color: var(--calendar-muted);
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .admin-page-head h1 {
   margin-top: 4px;
-  font-size: 28px;
+  font-size: 30px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .admin-page-head p {
   margin: 8px 0 0;
   color: var(--calendar-soft-text);
-  font-weight: 600;
+  font-weight: 500;
+  font-size: 15px;
 }
 
 .admin-actions {
   display: flex;
   flex-wrap: wrap;
   justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
 }
 
 .table-panel {
-  padding: 14px;
+  padding: 20px;
+  border: 1px solid var(--calendar-border);
+  border-radius: var(--calendar-radius);
+  background: var(--calendar-surface);
+  box-shadow: var(--calendar-shadow-sm);
 }
 
 .table-summary {
-  min-height: 40px;
+  min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 4px 12px;
+  gap: 8px;
+  padding: 0 4px 16px;
   color: var(--calendar-soft-text);
-  font-weight: 700;
+  font-weight: 600;
 }
 
 .table-summary strong {
   color: var(--calendar-text);
-  font-size: 22px;
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
 }
 
 .color-cell {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
+  gap: 10px;
+  font-weight: 600;
 }
 
 .color-cell i {
-  width: 14px;
-  height: 14px;
-  border-radius: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
 }
 
 .status-chip {
-  min-width: 64px;
-  height: 26px;
+  min-width: 70px;
+  height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0 10px;
-  border: 1px solid #bbf7d0;
-  border-radius: var(--calendar-control-radius);
-  color: #15803d;
+  padding: 0 12px;
+  border: 1px solid #86efac;
+  border-radius: 8px;
+  color: var(--calendar-success);
   background: #f0fdf4;
   font-size: 12px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .status-chip.inactive {
-  border-color: #e5e7eb;
+  border-color: var(--calendar-border);
   color: var(--calendar-muted);
-  background: #f8fafc;
+  background: var(--calendar-bg);
 }
 
 @media (max-width: 900px) {
   .admin-page {
-    padding: 14px 12px;
+    padding: 20px 16px;
   }
 
   .admin-page-head {

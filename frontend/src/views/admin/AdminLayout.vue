@@ -37,21 +37,21 @@ import {
   Setting,
   Tickets,
   User
-} from '@element-plus/icons-vue'
+} from '@element-plus/icons-vue';
 
 const menus = [
-  { path: '/admin', label: '管理首页', icon: DataBoard },
-  { path: '/admin/users', label: '系统用户管理', icon: User },
+  { path: '/admin', label: '概览', icon: DataBoard },
+  { path: '/admin/users', label: '用户管理', icon: User },
   { path: '/admin/departments', label: '部门管理', icon: OfficeBuilding },
   { path: '/admin/calendars', label: '日历管理', icon: Calendar },
-  { path: '/admin/all-calendars', label: '全员日历管理', icon: Tickets },
+  { path: '/admin/all-calendars', label: '全员日历', icon: Tickets },
   { path: '/admin/events', label: '日程管理', icon: Clock },
   { path: '/admin/attachments', label: '附件管理', icon: Files },
-  { path: '/admin/exports', label: '导出任务管理', icon: Document },
+  { path: '/admin/exports', label: '导出管理', icon: Document },
   { path: '/admin/audit-logs', label: '审计日志', icon: Operation },
   { path: '/admin/backup', label: '备份恢复', icon: DataBoard },
   { path: '/admin/settings', label: '系统配置', icon: Setting }
-]
+];
 </script>
 
 <style scoped>
@@ -64,63 +64,76 @@ const menus = [
 
 .admin-side {
   min-width: 0;
-  padding: 16px 14px 28px;
+  padding: 20px 16px 24px;
   overflow: auto;
   border-right: 1px solid var(--calendar-border);
   background: var(--calendar-sidebar);
   color: var(--calendar-text);
+  box-shadow: var(--calendar-shadow-sm);
 }
 
 .admin-title {
-  min-height: 58px;
+  min-height: 52px;
   display: grid;
   align-content: center;
-  gap: 3px;
-  padding: 0 12px;
-  border-bottom: 1px solid #dfe5ee;
+  gap: 4px;
+  padding: 0 12px 16px;
+  margin-bottom: 12px;
+  border-bottom: 1px solid var(--calendar-border-soft);
 }
 
 .admin-title strong {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .admin-title span {
   color: var(--calendar-muted);
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .admin-menu {
   display: grid;
-  gap: 4px;
-  padding-top: 14px;
+  gap: 2px;
+  padding-top: 4px;
 }
 
 .menu-link {
-  min-height: 40px;
+  min-height: 44px;
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 0 12px;
-  border-radius: var(--calendar-control-radius);
+  gap: 12px;
+  padding: 0 14px;
+  border-radius: 10px;
   color: var(--calendar-soft-text);
-  font-weight: 700;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.18s ease;
 }
 
 .menu-link:hover {
   color: var(--calendar-text);
-  background: #e2e7ef;
+  background: var(--calendar-border-soft);
+  transform: translateY(-1px);
 }
 
 .menu-link .el-icon {
-  font-size: 17px;
+  font-size: 18px;
+  opacity: 0.8;
 }
 
 .menu-link.router-link-active {
-  background: var(--calendar-primary);
-  color: #fff;
+  background: var(--calendar-primary-bg);
+  color: var(--calendar-primary);
+  font-weight: 600;
+}
+
+.menu-link.router-link-active .el-icon {
+  opacity: 1;
 }
 
 .admin-main {
@@ -130,42 +143,56 @@ const menus = [
 }
 
 .admin-topbar {
-  height: 60px;
+  height: 68px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 18px;
-  padding: 0 24px;
+  gap: 20px;
+  padding: 0 32px;
   border-bottom: 1px solid var(--calendar-border);
-  background: #f1f4f8;
+  background: var(--calendar-surface);
+  backdrop-filter: blur(8px);
 }
 
 .admin-topbar div {
   display: grid;
-  gap: 2px;
+  gap: 3px;
 }
 
 .admin-topbar span {
   color: var(--calendar-muted);
-  font-size: 12px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 }
 
 .admin-topbar strong {
-  font-size: 18px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .admin-calendar-entry {
-  height: 34px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
-  padding: 0 14px;
-  border: 1px solid #cfd6df;
+  padding: 0 18px;
+  border: 1px solid var(--calendar-border);
   border-radius: var(--calendar-control-radius);
-  color: #1f2937;
-  background: #fff;
+  color: var(--calendar-text);
+  background: var(--calendar-surface);
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 600;
+  transition: all 0.2s ease;
+  box-shadow: var(--calendar-shadow-sm);
+}
+
+.admin-calendar-entry:hover {
+  border-color: var(--calendar-primary);
+  color: var(--calendar-primary);
+  box-shadow: var(--calendar-shadow);
+  transform: translateY(-1px);
 }
 
 @media (max-width: 820px) {
@@ -177,15 +204,16 @@ const menus = [
     display: flex;
     overflow-x: auto;
     gap: 8px;
-    padding: 10px 12px;
+    padding: 12px 16px;
   }
 
   .admin-title {
     min-height: 40px;
     white-space: nowrap;
-    padding: 0 12px;
+    padding: 0 16px 0 0;
     border-bottom: 0;
-    border-right: 1px solid #dfe5ee;
+    border-right: 1px solid var(--calendar-border);
+    margin-bottom: 0;
   }
 
   .admin-title span {
@@ -204,8 +232,8 @@ const menus = [
 
   .admin-topbar {
     height: auto;
-    min-height: 56px;
-    padding: 10px 12px;
+    min-height: 60px;
+    padding: 12px 20px;
   }
 }
 </style>

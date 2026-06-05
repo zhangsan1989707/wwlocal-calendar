@@ -1,23 +1,32 @@
 :root {
-  --calendar-primary: #2f7cf6;
-  --calendar-primary-dark: #1e5fb8;
-  --calendar-bg: #f3f6fb;
+  --calendar-primary: #3b82f6;
+  --calendar-primary-light: #60a5fa;
+  --calendar-primary-dark: #1d4ed8;
+  --calendar-primary-bg: #eff6ff;
+  --calendar-success: #10b981;
+  --calendar-warning: #f59e0b;
+  --calendar-danger: #ef4444;
+  --calendar-bg: #f8fafc;
   --calendar-surface: #ffffff;
-  --calendar-sidebar: #eef2f8;
-  --calendar-border: #e4e8ef;
-  --calendar-border-soft: #edf0f5;
-  --calendar-text: #111827;
-  --calendar-muted: #8a95a6;
-  --calendar-soft-text: #5f6b7d;
-  --calendar-radius: 4px;
-  --calendar-control-radius: 4px;
-  --calendar-shadow: 0 12px 34px rgba(17, 24, 39, 0.22);
-  --calendar-sidebar-width: 300px;
+  --calendar-sidebar: #ffffff;
+  --calendar-border: #e2e8f0;
+  --calendar-border-soft: #f1f5f9;
+  --calendar-text: #0f172a;
+  --calendar-muted: #94a3b8;
+  --calendar-soft-text: #64748b;
+  --calendar-radius: 12px;
+  --calendar-control-radius: 8px;
+  --calendar-shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --calendar-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --calendar-shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --calendar-sidebar-width: 260px;
   --calendar-toolbar-height: 78px;
   --calendar-cell-height: 136px;
-  font-family: Inter, "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  font-family: "Inter", "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
   color: var(--calendar-text);
   background: var(--calendar-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
 * {
@@ -80,30 +89,43 @@ a {
 .el-button {
   --el-border-radius-base: var(--calendar-control-radius);
   font-weight: 600;
+  transition: all 0.2s ease;
 }
 
 .el-button--primary {
   --el-button-bg-color: var(--calendar-primary);
   --el-button-border-color: var(--calendar-primary);
-  --el-button-hover-bg-color: #4b8ff8;
-  --el-button-hover-border-color: #4b8ff8;
+  --el-button-hover-bg-color: var(--calendar-primary-dark);
+  --el-button-hover-border-color: var(--calendar-primary-dark);
+  box-shadow: var(--calendar-shadow-sm);
+}
+
+.el-button--primary:hover {
+  box-shadow: var(--calendar-shadow);
 }
 
 .el-input__wrapper,
 .el-select__wrapper,
 .el-textarea__inner {
   border-radius: var(--calendar-control-radius);
-  box-shadow: 0 0 0 1px #d7dce5 inset;
+  box-shadow: 0 0 0 1px var(--calendar-border) inset;
+  transition: all 0.2s ease;
 }
 
 .el-input__wrapper:hover,
 .el-select__wrapper:hover,
 .el-textarea__inner:hover {
-  box-shadow: 0 0 0 1px #bcc5d2 inset;
+  box-shadow: 0 0 0 1px var(--calendar-primary) inset;
+}
+
+.el-input__wrapper.is-focus,
+.el-select__wrapper.is-focus {
+  box-shadow: 0 0 0 2px var(--calendar-primary-bg), 0 0 0 1px var(--calendar-primary) inset !important;
 }
 
 .el-dialog {
-  border-radius: 0;
+  border-radius: var(--calendar-radius);
+  box-shadow: var(--calendar-shadow-lg);
 }
 
 .event-dialog .el-dialog__header {
@@ -129,38 +151,46 @@ a {
 }
 
 .admin-calendar-dialog .el-dialog__header {
-  height: 56px;
-  padding: 0 24px;
+  height: 64px;
+  padding: 0 28px;
   display: flex;
   align-items: center;
   margin: 0;
-  color: #fff;
-  background: #3f6fa8;
+  color: var(--calendar-text);
+  background: var(--calendar-surface);
+  border-bottom: 1px solid var(--calendar-border-soft);
 }
 
 .admin-calendar-dialog .el-dialog__title {
-  color: #fff;
+  color: var(--calendar-text);
   font-size: 18px;
   font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 .admin-calendar-dialog .el-dialog__headerbtn {
   top: 0;
-  height: 56px;
+  height: 64px;
 }
 
 .admin-calendar-dialog .el-dialog__headerbtn .el-dialog__close {
-  color: #fff;
+  color: var(--calendar-soft-text);
+  transition: color 0.2s ease;
+}
+
+.admin-calendar-dialog .el-dialog__headerbtn .el-dialog__close:hover {
+  color: var(--calendar-text);
 }
 
 .admin-calendar-dialog .el-dialog__body {
-  padding: 34px 56px 28px;
+  padding: 28px 28px 24px;
 }
 
 .admin-calendar-dialog .el-dialog__footer {
-  padding: 16px 32px;
-  border-top: 1px solid var(--calendar-border);
-  background: #fafafa;
+  padding: 16px 28px 20px;
+  border-top: 1px solid var(--calendar-border-soft);
+  background: var(--calendar-bg);
+  border-radius: 0 0 var(--calendar-radius) var(--calendar-radius);
 }
 
 @media (max-width: 920px) {
