@@ -113,7 +113,7 @@ public class MasterDataController {
   }
 
   @PostMapping("/all-calendars/{id}/disable")
-  public ApiResponse<Void> disableAllCalendar(@PathVariable String id, @RequestBody(required = false) Map<String, Object> payload) {
+  public ApiResponse<Void> disableAllCalendar(@PathVariable long id, @RequestBody(required = false) Map<String, Object> payload) {
     calendars.disableAllCalendar(id, payload == null ? null : number(payload.get("operatorUserId")));
     return ApiResponse.ok();
   }
