@@ -292,8 +292,9 @@ public class EventService {
 
   /**
    * Generate all occurrence dates for a recurrence rule within the given range.
+   * Package-private for testing purposes.
    */
-  private List<LocalDateTime> generateRecurrenceInstances(
+  List<LocalDateTime> generateRecurrenceInstances(
       LocalDateTime start, String rrule, Object endAt, Object count,
       LocalDateTime expandStart, LocalDateTime expandEnd) {
 
@@ -412,10 +413,26 @@ public class EventService {
           nextMonth = nextMonth.withDayOfMonth(1)
               .with(TemporalAdjusters.dayOfWeekInMonth(targetNum, targetDow));
         } else {
-          // 负数表示倒数第N个
-          nextMonth = nextMonth.withDayOfMonth(nextMonth.toLocalDate()
-              .lengthOfMonth())
-              .with(TemporalAdjusters.lastInMonth(targetDow));
+          // 负数表示倒数第N个：先找到该月所有目标星期几，然后取倒数第|N|个
+          var absNum = Math.abs(targetNum);
+          var yearMonth = nextMonth.toLocalDate().getYear() * 12 + nextMonth.toLocalDate().getMonthValue() - 1;
+          var tempDate = java.time.LocalDate.of(yearMonth / 12, yearMonth % 12 + 1, 1);
+          var matchingDays = new ArrayList<java.time.LocalDate>();
+          var daysInMonth = tempDate.lengthOfMonth();
+          
+          // 找出该月所有目标星期几
+          for (int day = 1; day <= daysInMonth; day++) {
+            var date = tempDate.withDayOfMonth(day);
+            if (date.getDayOfWeek() == targetDow) {
+              matchingDays.add(date);
+            }
+          }
+          
+          // 取倒数第|N|个
+          if (!matchingDays.isEmpty()) {
+            var index = Math.max(0, matchingDays.size() - absNum);
+            nextMonth = matchingDays.get(index).atStartOfDay();
+          }
         }
         return nextMonth;
       } else {
