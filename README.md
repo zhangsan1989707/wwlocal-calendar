@@ -42,6 +42,8 @@ npm install
 npm run dev
 ```
 
+前端默认运行在 http://localhost:3007
+
 容器化：
 
 ```bash
