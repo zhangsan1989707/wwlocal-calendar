@@ -94,6 +94,13 @@
               </el-option>
             </el-select>
           </el-form-item>
+          <el-form-item label="标签">
+            <el-select v-model="form.tag_id" clearable placeholder="选择标签">
+              <el-option v-for="item in tags" :key="item.id" :label="item.name" :value="item.id">
+                <span class="tag-dot" :style="{ background: item.color }" />{{ item.name }}
+              </el-option>
+            </el-select>
+          </el-form-item>
           <el-form-item label="提醒">
             <el-select v-model="reminderLabel">
               <el-option label="不提醒" value="不提醒" />
@@ -107,7 +114,7 @@
             </el-select>
           </el-form-item>
           <el-form-item label="重复">
-            <el-select v-model="form.recurrence_rule" clearable placeholder="不重复">
+            <el-select v-model="form.recurrence_rule" clearable placeholder="不重复" @change="onRecurrenceChange">
               <el-option label="每日" value="FREQ=DAILY;INTERVAL=1" />
               <el-option label="工作日" value="FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR" />
               <el-option label="每周" value="FREQ=WEEKLY;INTERVAL=1" />
@@ -115,6 +122,12 @@
               <el-option label="每月" value="FREQ=MONTHLY;INTERVAL=1" />
               <el-option label="每年" value="FREQ=YEARLY;INTERVAL=1" />
             </el-select>
+          </el-form-item>
+          <el-form-item v-if="form.recurrence_rule" label="结束日期">
+            <el-date-picker v-model="form.recurrence_end" type="date" placeholder="永不结束" clearable format="YYYY-MM-DD" value-format="YYYY-MM-DDTHH:mm:ss" />
+          </el-form-item>
+          <el-form-item v-if="form.recurrence_rule && !form.recurrence_end" label="重复次数">
+            <el-input-number v-model="form.occurrence_count" :min="1" :max="365" placeholder="次数" />
           </el-form-item>
         </el-form>
       </section>
@@ -317,7 +330,7 @@ watch(
       }
       
       try {
-        const participants = await api.get(`/events/${props.event.id}/participants`)
+        const participants = await api.get<any[]>(`/events/${props.event.id}/participants`)
         participantIds.value = participants
           .filter((p: any) => p.user_id)
           .map((p: any) => String(p.user_id))
@@ -327,7 +340,7 @@ watch(
       
       // 加载提醒
       try {
-        const reminders = await api.get(`/events/${props.event.id}/reminders`)
+        const reminders = await api.get<any[]>(`/events/${props.event.id}/reminders`)
         if (reminders.length > 0) {
           const reminder = reminders[0]
           const minutes = reminder.minutes_before
@@ -354,7 +367,7 @@ watch(
       
       // 加载待办事项
       try {
-        const eventTodos = await api.get(`/events/${props.event.id}/todos`)
+        const eventTodos = await api.get<any[]>(`/events/${props.event.id}/todos`)
         todos.value = eventTodos.map((todo: any) => ({
           title: todo.title || '',
           assigneeUserId: todo.assignee_user_id || undefined,
@@ -423,6 +436,13 @@ function removeTodo(index: number) {
   todos.value.splice(index, 1)
 }
 
+function onRecurrenceChange() {
+  if (!form.recurrence_rule) {
+    form.recurrence_end = undefined
+    form.occurrence_count = undefined
+  }
+}
+
 // Sync end time when duration changes
 watch(durationLabel, (label) => {
   const durationMap: Record<string, number> = {
@@ -469,7 +489,10 @@ async function submit() {
     participantIds: participantIds.value,
     reminders: reminders,
     todos: todos.value.filter((item) => item.title),
-    operatorUserId: props.currentUserId
+    operatorUserId: props.currentUserId,
+    rrule: form.recurrence_rule || undefined,
+    recurrence_end: form.recurrence_end || undefined,
+    occurrence_count: form.occurrence_count || undefined
   }
   try {
     if (form.id) {

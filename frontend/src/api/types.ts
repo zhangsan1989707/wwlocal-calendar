@@ -55,6 +55,8 @@ export interface EventItem {
   calendar_name?: string
   calendar_color?: string
   recurrence_rule?: string
+  is_recurrence_instance?: boolean
+  recurrence_event_id?: number
   total_participants?: number
   created_at?: string
   updated_at?: string

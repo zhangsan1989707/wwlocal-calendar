@@ -83,7 +83,13 @@
               <el-icon><Tickets /></el-icon>
             </div>
             <div class="meta-content">
-              <span class="meta-label">参与人</span>
+              <span class="meta-label">参与人 ({{ participants.length }})</span>
+              <div class="response-stats" v-if="isOrganizer">
+                <span class="stat-badge accepted">{{ acceptedCount }} 接受</span>
+                <span class="stat-badge declined">{{ declinedCount }} 拒绝</span>
+                <span class="stat-badge tentative">{{ tentativeCount }} 待定</span>
+                <span class="stat-badge pending">{{ pendingCount }} 待确认</span>
+              </div>
               <div class="participants-list">
                 <div v-for="participant in participants" :key="participant.id" class="participant-item">
                   <span class="participant-name">{{ participant.name || participant.user_id || '部门成员' }}</span>
@@ -184,6 +190,11 @@ const visible = computed({
 const isOrganizer = computed(() => {
   return props.event && String(props.event.organizer_user_id) === String(props.currentUserId)
 })
+
+const acceptedCount = computed(() => participants.value.filter(p => p.response_status === 'ACCEPTED').length)
+const declinedCount = computed(() => participants.value.filter(p => p.response_status === 'DECLINED').length)
+const tentativeCount = computed(() => participants.value.filter(p => p.response_status === 'TENTATIVE').length)
+const pendingCount = computed(() => participants.value.filter(p => p.response_status === 'NEEDS_ACTION').length)
 
 const attachments = ref<Attachment[]>([])
 const participants = ref<Participant[]>([])
@@ -470,6 +481,40 @@ async function respond(status: string) {
   display: grid;
   gap: 8px;
   margin-top: 4px;
+}
+
+.response-stats {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  flex-wrap: wrap;
+}
+
+.stat-badge {
+  font-size: 11px;
+  font-weight: 700;
+  padding: 1px 6px;
+  border-radius: 4px;
+}
+
+.stat-badge.accepted {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.stat-badge.declined {
+  background: #fef2f2;
+  color: #dc2626;
+}
+
+.stat-badge.tentative {
+  background: #fef9c3;
+  color: #ca8a04;
+}
+
+.stat-badge.pending {
+  background: #e0e7ff;
+  color: #4f46e5;
 }
 
 .participant-item {

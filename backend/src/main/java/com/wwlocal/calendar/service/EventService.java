@@ -3,10 +3,19 @@ package com.wwlocal.calendar.service;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.sql.Timestamp;
+import java.time.DayOfWeek;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.ZonedDateTime;
+import java.time.temporal.TemporalAdjusters;
+import java.time.temporal.WeekFields;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.StringJoiner;
@@ -65,7 +74,7 @@ public class EventService {
 
     var sql = new StringBuilder("SELECT DISTINCT ").append(select)
         .append(" FROM event e")
-        .append(" LEFT JOIN calendar c ON e.calendar_id = c.id")
+        .append(" LEFT JOIN calendars c ON e.calendar_id = c.id")
         .append(" LEFT JOIN calendar_tag ct ON e.tag_id = ct.id")
         .append(" LEFT JOIN (")
         .append("  SELECT event_id, COUNT(*) AS total_participants")
@@ -144,7 +153,315 @@ public class EventService {
     }
 
     sql.append(" ORDER BY e.start_at LIMIT 500");
-    return jdbc.queryForList(sql.toString(), args.toArray());
+    var events = jdbc.queryForList(sql.toString(), args.toArray());
+
+    // 展开重复日程
+    return expandRecurrences(events, params);
+  }
+
+  /**
+   * Parse RRULE and expand recurring events into individual instances.
+   * Supports FREQ=DAILY/WEEKLY/MONTHLY/YEARLY with INTERVAL, BYDAY, COUNT, and UNTIL.
+   */
+  private List<Map<String, Object>> expandRecurrences(List<Map<String, Object>> baseEvents, Map<String, String> params) {
+    var result = new ArrayList<Map<String, Object>>();
+
+    // 收集所有有重复规则的 event ID
+    var eventIds = new ArrayList<Long>();
+    for (var event : baseEvents) {
+      eventIds.add(((Number) event.get("id")).longValue());
+    }
+
+    if (eventIds.isEmpty()) {
+      return result;
+    }
+
+    // 查询所有重复规则
+    var recurrenceMap = new HashMap<Long, Map<String, Object>>();
+    var placeholders = new StringJoiner(",");
+    for (var id : eventIds) {
+      placeholders.add("?");
+    }
+    var recurrences = jdbc.queryForList(
+        "SELECT * FROM event_recurrence WHERE event_id IN (" + placeholders + ")",
+        eventIds.toArray());
+    for (var rec : recurrences) {
+      recurrenceMap.put(((Number) rec.get("event_id")).longValue(), rec);
+    }
+
+    // 查询所有异常
+    var exceptions = jdbc.queryForList(
+        "SELECT ex.* FROM event_exception ex JOIN event_recurrence er ON ex.recurrence_id = er.id WHERE er.event_id IN (" + placeholders + ")",
+        eventIds.toArray());
+    var exceptionMap = new HashMap<Long, List<Map<String, Object>>>();
+    for (var ex : exceptions) {
+      var recurrenceId = ((Number) ex.get("recurrence_id")).longValue();
+      exceptionMap.computeIfAbsent(recurrenceId, k -> new ArrayList<>()).add(ex);
+    }
+
+    // 确定展开范围：默认前后3个月
+    var now = LocalDate.now();
+    var expandStart = now.minusMonths(3).atStartOfDay();
+    var expandEnd = now.plusMonths(3).plusDays(1).atStartOfDay();
+
+    // 如果传了日期范围参数，使用参数范围
+    if (params.get("start_at") != null && !params.get("start_at").isBlank()) {
+      expandStart = LocalDateTime.parse(params.get("start_at").replace(" ", "T"));
+    }
+    if (params.get("start") != null && !params.get("start").isBlank()) {
+      expandStart = LocalDateTime.parse(params.get("start").replace(" ", "T"));
+    }
+    if (params.get("end_at") != null && !params.get("end_at").isBlank()) {
+      expandEnd = LocalDateTime.parse(params.get("end_at").replace(" ", "T"));
+    }
+    if (params.get("end") != null && !params.get("end").isBlank()) {
+      expandEnd = LocalDateTime.parse(params.get("end").replace(" ", "T"));
+    }
+
+    for (var event : baseEvents) {
+      var eventId = ((Number) event.get("id")).longValue();
+      var recurrence = recurrenceMap.get(eventId);
+      if (recurrence == null) {
+        // 非重复日程，直接添加
+        result.add(event);
+        continue;
+      }
+
+      // 解析 RRULE
+      var rrule = String.valueOf(recurrence.get("rrule"));
+      var rruleEnd = recurrence.get("end_at");
+      var occurrenceCount = recurrence.get("occurrence_count");
+
+      var eventStart = toLocalDateTime(event.get("start_at"));
+      var eventEnd = toLocalDateTime(event.get("end_at"));
+      var duration = java.time.Duration.between(eventStart, eventEnd);
+
+      // 展开重复实例
+      var instances = generateRecurrenceInstances(
+          eventStart, rrule, rruleEnd, occurrenceCount, expandStart, expandEnd);
+
+      // 处理异常
+      var recExceptions = exceptionMap.get(((Number) recurrence.get("id")).longValue());
+      var cancelledDates = new java.util.HashSet<LocalDate>();
+      var movedDates = new HashMap<LocalDate, LocalDateTime[]>();
+
+      if (recExceptions != null) {
+        for (var ex : recExceptions) {
+          var origStart = toLocalDateTime(ex.get("original_start_at")).toLocalDate();
+          var exType = String.valueOf(ex.get("exception_type"));
+          if ("CANCELLED".equals(exType)) {
+            cancelledDates.add(origStart);
+          } else if ("MOVED".equals(exType)) {
+            var newStart = toLocalDateTime(ex.get("new_start_at"));
+            var newEnd = toLocalDateTime(ex.get("new_end_at"));
+            movedDates.put(origStart, new LocalDateTime[]{newStart, newEnd});
+          }
+        }
+      }
+
+      for (var instanceStart : instances) {
+        var instanceDate = instanceStart.toLocalDate();
+        if (cancelledDates.contains(instanceDate)) {
+          continue; // 跳过已取消的实例
+        }
+
+        var instanceEnd = instanceStart.plus(duration);
+        if (movedDates.containsKey(instanceDate)) {
+          var moved = movedDates.get(instanceDate);
+          instanceStart = moved[0];
+          instanceEnd = moved[1];
+        }
+
+        // 检查是否在展开范围内
+        if (instanceEnd.isBefore(expandStart) || instanceStart.isAfter(expandEnd)) {
+          continue;
+        }
+
+        // 创建展开后的实例（复制原始 event 数据，替换时间）
+        var instance = new LinkedHashMap<>(event);
+        instance.put("start_at", Timestamp.valueOf(instanceStart));
+        instance.put("end_at", Timestamp.valueOf(instanceEnd));
+        instance.put("is_recurrence_instance", true);
+        instance.put("recurrence_event_id", eventId);
+        result.add(instance);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Generate all occurrence dates for a recurrence rule within the given range.
+   */
+  private List<LocalDateTime> generateRecurrenceInstances(
+      LocalDateTime start, String rrule, Object endAt, Object count,
+      LocalDateTime expandStart, LocalDateTime expandEnd) {
+
+    var instances = new ArrayList<LocalDateTime>();
+    var rruleMap = parseRrule(rrule);
+    var freq = rruleMap.getOrDefault("FREQ", "DAILY");
+    var interval = Integer.parseInt(rruleMap.getOrDefault("INTERVAL", "1"));
+    var byDayRaw = rruleMap.get("BYDAY");
+
+    // 解析结束条件
+    LocalDateTime ruleEnd = null;
+    if (endAt instanceof Timestamp ts) {
+      ruleEnd = ts.toLocalDateTime();
+    } else if (endAt instanceof java.util.Date d) {
+      ruleEnd = d.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+    var maxCount = Integer.MAX_VALUE;
+    if (count instanceof Number n) {
+      maxCount = n.intValue();
+    }
+
+    // 解析 BYDAY
+    var byDays = new ArrayList<DayOfWeek>();
+    var byDayNums = new ArrayList<Integer>(); // 第N个星期几（每月/每年）
+    if (byDayRaw != null) {
+      var parts = byDayRaw.split(",");
+      for (var part : parts) {
+        part = part.trim();
+        var numPrefix = 0;
+        var dayName = part;
+        for (var i = 0; i < part.length(); i++) {
+          if (Character.isDigit(part.charAt(i)) || part.charAt(i) == '-') {
+            continue;
+          }
+          var numStr = part.substring(0, i);
+          dayName = part.substring(i);
+          if (!numStr.isEmpty()) {
+            numPrefix = Integer.parseInt(numStr);
+          }
+          break;
+        }
+        var dow = parseDayOfWeek(dayName);
+        byDays.add(dow);
+        byDayNums.add(numPrefix);
+      }
+    }
+
+    var current = start;
+    var countGenerated = 0;
+    var maxIterations = 1000; // 安全上限
+
+    while (countGenerated < maxCount && countGenerated < maxIterations) {
+      if (current.toLocalDate().isAfter(expandEnd.toLocalDate().plusDays(1))) {
+        break;
+      }
+      if (ruleEnd != null && current.isAfter(ruleEnd)) {
+        break;
+      }
+
+      if (current.isAfter(expandStart.minusSeconds(1)) || current.isEqual(expandStart)) {
+        instances.add(current);
+      }
+      countGenerated++;
+
+      // 计算下一个实例
+      current = nextInstance(current, freq, interval, byDays, byDayNums, start);
+    }
+
+    return instances;
+  }
+
+  private LocalDateTime nextInstance(LocalDateTime current, String freq, int interval,
+      List<DayOfWeek> byDays, List<Integer> byDayNums, LocalDateTime originalStart) {
+
+    if (byDays.isEmpty()) {
+      // 简单间隔
+      return switch (freq) {
+        case "DAILY" -> current.plusDays(interval);
+        case "WEEKLY" -> current.plusWeeks(interval);
+        case "MONTHLY" -> current.plusMonths(interval);
+        case "YEARLY" -> current.plusYears(interval);
+        default -> current.plusDays(1);
+      };
+    }
+
+    if ("WEEKLY".equals(freq)) {
+      // 按星期几重复
+      var dayOfWeek = current.getDayOfWeek();
+      var targetIndex = byDays.indexOf(dayOfWeek);
+      if (targetIndex >= 0 && targetIndex < byDays.size() - 1) {
+        // 同周内下一个目标星期
+        var nextDow = byDays.get(targetIndex + 1);
+        var daysUntil = (nextDow.getValue() - dayOfWeek.getValue() + 7) % 7;
+        return current.plusDays(daysUntil == 0 ? 7 : daysUntil);
+      } else {
+        // 下一周的第一个目标星期
+        var nextDow = byDays.get(0);
+        var daysUntil = (nextDow.getValue() - dayOfWeek.getValue() + 7) % 7;
+        if (daysUntil == 0) daysUntil = 7;
+        return current.plusDays(daysUntil).plusWeeks(interval - 1);
+      }
+    }
+
+    if ("MONTHLY".equals(freq)) {
+      if (!byDayNums.isEmpty() && byDayNums.get(0) != 0) {
+        // 第N个星期几
+        var nextMonth = current.plusMonths(interval);
+        var targetDow = byDays.get(0);
+        var targetNum = byDayNums.get(0);
+        if (targetNum > 0) {
+          nextMonth = nextMonth.withDayOfMonth(1)
+              .with(TemporalAdjusters.dayOfWeekInMonth(targetNum, targetDow));
+        } else {
+          // 负数表示倒数第N个
+          nextMonth = nextMonth.withDayOfMonth(nextMonth.toLocalDate()
+              .lengthOfMonth())
+              .with(TemporalAdjusters.lastInMonth(targetDow));
+        }
+        return nextMonth;
+      } else {
+        // 按日期（每月同一天）
+        return current.plusMonths(interval);
+      }
+    }
+
+    if ("YEARLY".equals(freq)) {
+      return current.plusYears(interval);
+    }
+
+    return current.plusDays(1);
+  }
+
+  private Map<String, String> parseRrule(String rrule) {
+    var map = new HashMap<String, String>();
+    if (rrule == null || rrule.isBlank()) return map;
+    for (var part : rrule.split(";")) {
+      var kv = part.split("=", 2);
+      if (kv.length == 2) {
+        map.put(kv[0].trim().toUpperCase(), kv[1].trim().toUpperCase());
+      }
+    }
+    return map;
+  }
+
+  private DayOfWeek parseDayOfWeek(String name) {
+    return switch (name.toUpperCase()) {
+      case "MO" -> DayOfWeek.MONDAY;
+      case "TU" -> DayOfWeek.TUESDAY;
+      case "WE" -> DayOfWeek.WEDNESDAY;
+      case "TH" -> DayOfWeek.THURSDAY;
+      case "FR" -> DayOfWeek.FRIDAY;
+      case "SA" -> DayOfWeek.SATURDAY;
+      case "SU" -> DayOfWeek.SUNDAY;
+      default -> DayOfWeek.MONDAY;
+    };
+  }
+
+  private LocalDateTime toLocalDateTime(Object value) {
+    if (value instanceof Timestamp ts) {
+      return ts.toLocalDateTime();
+    }
+    if (value instanceof java.util.Date d) {
+      return d.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+    if (value instanceof String s) {
+      return LocalDateTime.parse(s.replace(" ", "T"));
+    }
+    return LocalDateTime.now();
   }
 
   /**
@@ -274,20 +591,40 @@ public class EventService {
         "SELECT id FROM event_recurrence WHERE event_id = ?", eventId);
     if (existing.isEmpty()) {
       jdbc.update(
-          "INSERT INTO event_recurrence(event_id, rrule, end_at) VALUES (?, ?, ?::timestamptz)",
-          eventId, rrule, payload.get("recurrence_end"));
+          "INSERT INTO event_recurrence(event_id, rrule, end_at, occurrence_count) VALUES (?, ?, ?::timestamptz, ?)",
+          eventId, rrule, payload.get("recurrence_end"), payload.get("occurrence_count"));
     } else {
       jdbc.update(
-          "UPDATE event_recurrence SET rrule = ?, end_at = ?::timestamptz WHERE event_id = ?",
-          rrule, payload.get("recurrence_end"), eventId);
+          "UPDATE event_recurrence SET rrule = ?, end_at = ?::timestamptz, occurrence_count = ? WHERE event_id = ?",
+          rrule, payload.get("recurrence_end"), payload.get("occurrence_count"), eventId);
     }
   }
 
   /**
-   * Remove (cancel) an event. Single instance: soft-delete (status = CANCELLED).
-   * Series delete is not yet implemented.
+   * Remove (cancel) an event. 
+   * scope=single: soft-delete single event (status = CANCELLED).
+   * scope=series: cancel the entire recurrence series.
    */
   public void remove(long id, Long operatorUserId, String scope) {
+    if ("series".equals(scope)) {
+      // 删除整个重复系列：取消主事件
+      if (operatorUserId != null) {
+        var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+        if (!event.isEmpty()) {
+          var organizerId = event.get(0).get("organizer_user_id");
+          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
+            throw new SecurityException("只有发起人可以删除此日程");
+          }
+        }
+      }
+      jdbc.update("DELETE FROM event_recurrence WHERE event_id = ?", id);
+      jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
+      if (operatorUserId != null) {
+        audit.record(operatorUserId, "event", "cancel_series", "event", id, "整个重复系列已取消");
+      }
+      return;
+    }
+
     if (!"single".equals(scope)) {
       throw new UnsupportedOperationException("series delete not implemented");
     }

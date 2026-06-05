@@ -89,6 +89,20 @@
         </div>
 
         <div v-if="view === 'month'" class="month-board">
+          <div class="all-day-strip" v-if="monthAllDayEvents.length">
+            <div class="all-day-label">全天</div>
+            <div class="all-day-items">
+              <span
+                v-for="event in monthAllDayEvents"
+                :key="event.id"
+                class="all-day-pill"
+                :style="{ background: event.calendar_color || event.tag_color || 'var(--calendar-primary)' }"
+                @click.stop="selectEvent(event)"
+              >
+                {{ event.title }}
+              </span>
+            </div>
+          </div>
           <div class="weekday-row">
             <span v-for="(item, i) in weekdayLabels" :key="item"><em>{{ item }}</em></span>
           </div>
@@ -382,6 +396,7 @@ const personalCalendars = computed(() => displayCalendars.value.filter((item) =>
 const sharedCalendars = computed(() => displayCalendars.value.filter((item) => item.type !== 'PERSONAL'))
 const displayEvents = computed(() => store.events)
 const filteredEvents = computed(() => displayEvents.value.filter((event) => visibleCalendarIds.value.map(String).includes(String(event.calendar_id))))
+const monthAllDayEvents = computed(() => filteredEvents.value.filter((event) => event.all_day))
 const monthTitle = computed(() => `${selectedDate.value.getFullYear()}年${selectedDate.value.getMonth() + 1}月`)
 const stageTitle = computed(() => {
   if (view.value === 'day') return `${selectedDate.value.getFullYear()}年${selectedDate.value.getMonth() + 1}月${selectedDate.value.getDate()}日`
@@ -463,19 +478,42 @@ function editEvent(event: EventItem) {
 
 async function removeEvent(event: EventItem) {
   try {
-    await ElMessageBox.confirm('确认删除该日程？')
-  } catch {
-    return
-  }
-  try {
-    if (event.id && !event.id.toString().startsWith('local-')) {
-      await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
+    if (event.is_recurrence_instance || event.recurrence_rule) {
+      await ElMessageBox.confirm('该日程是重复日程，是否删除整个系列？', '删除重复日程', {
+        confirmButtonText: '删除整个系列',
+        cancelButtonText: '仅删除本次',
+        distinguishCancelAndClose: true,
+        type: 'warning'
+      }).then(async () => {
+        // 删除整个系列
+        const seriesId = event.recurrence_event_id || event.id
+        if (seriesId && !String(seriesId).startsWith('local-')) {
+          await api.delete(`/events/${seriesId}?operatorUserId=${store.currentUserId}&scope=series`)
+        }
+        ElMessage.success('已删除整个系列')
+      }).catch(async (action: string) => {
+        if (action === 'cancel') {
+          // 仅删除本次
+          if (event.id && !String(event.id).startsWith('local-')) {
+            await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
+          }
+          ElMessage.success('已删除')
+        }
+        return
+      })
+    } else {
+      await ElMessageBox.confirm('确认删除该日程？')
+      if (event.id && !event.id.toString().startsWith('local-')) {
+        await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
+      }
+      ElMessage.success('已删除')
     }
-    ElMessage.success('已删除')
     detailVisible.value = false
     await reload()
   } catch (err: any) {
-    ElMessage.error(err?.message || '删除失败')
+    if (err !== 'cancel') {
+      ElMessage.error(err?.message || '删除失败')
+    }
   }
 }
 
@@ -502,7 +540,14 @@ function timeText(event: EventItem) {
 
 function eventsByDay(day: Date) {
   return filteredEvents.value.filter((event) => {
-    return isSameDate(new Date(event.start_at), day)
+    const startDay = new Date(event.start_at)
+    const endDay = new Date(event.end_at)
+    startDay.setHours(0, 0, 0, 0)
+    endDay.setHours(0, 0, 0, 0)
+    const targetDay = new Date(day)
+    targetDay.setHours(0, 0, 0, 0)
+    // 跨天日程：在 start 和 end（含）之间都显示
+    return targetDay >= startDay && targetDay <= endDay
   }).slice(0, 4)
 }
 
@@ -848,6 +893,49 @@ async function exportEvents() {
   position: sticky;
   top: 0;
   z-index: 2;
+}
+
+/* All-day events strip */
+.all-day-strip {
+  display: grid;
+  grid-template-columns: 50px 1fr;
+  gap: 8px;
+  padding: 6px 10px;
+  background: var(--calendar-surface);
+  border-bottom: 1px solid var(--calendar-border);
+  align-items: center;
+  min-height: 32px;
+}
+
+.all-day-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--calendar-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.all-day-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.all-day-pill {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 4px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.15);
+  transition: opacity 0.15s ease;
+}
+
+.all-day-pill:hover {
+  opacity: 0.85;
 }
 
 .weekday-row span {
