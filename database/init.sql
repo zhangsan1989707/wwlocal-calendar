@@ -20,7 +20,7 @@ DROP TABLE IF EXISTS sys_user;
 DROP TABLE IF EXISTS sys_department;
 
 CREATE TABLE sys_department (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   parent_id BIGINT REFERENCES sys_department(id),
   name VARCHAR(50) NOT NULL,
   sort_order INTEGER NOT NULL DEFAULT 0,
@@ -30,7 +30,7 @@ CREATE TABLE sys_department (
 );
 
 CREATE TABLE sys_user (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   department_id BIGINT REFERENCES sys_department(id),
   name VARCHAR(50) NOT NULL,
   email VARCHAR(120),
@@ -42,7 +42,7 @@ CREATE TABLE sys_user (
 );
 
 CREATE TABLE calendar_tag (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   name VARCHAR(30) NOT NULL UNIQUE,
   color VARCHAR(20) NOT NULL,
   enabled BOOLEAN NOT NULL DEFAULT TRUE,
@@ -50,7 +50,7 @@ CREATE TABLE calendar_tag (
 );
 
 CREATE TABLE calendar (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   owner_user_id BIGINT REFERENCES sys_user(id),
   name VARCHAR(80) NOT NULL,
   description TEXT,
@@ -63,7 +63,7 @@ CREATE TABLE calendar (
 );
 
 CREATE TABLE calendar_auto_subscribe_scope (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   calendar_id BIGINT NOT NULL REFERENCES calendar(id) ON DELETE CASCADE,
   scope_type VARCHAR(20) NOT NULL CHECK (scope_type IN ('COMPANY', 'DEPARTMENT', 'USER')),
   department_id BIGINT REFERENCES sys_department(id),
@@ -77,7 +77,7 @@ CREATE TABLE calendar_auto_subscribe_scope (
 );
 
 CREATE TABLE calendar_shared_member (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   calendar_id BIGINT NOT NULL REFERENCES calendar(id) ON DELETE CASCADE,
   user_id BIGINT NOT NULL REFERENCES sys_user(id),
   role VARCHAR(20) NOT NULL CHECK (role IN ('MANAGER', 'EDITOR')),
@@ -86,7 +86,7 @@ CREATE TABLE calendar_shared_member (
 );
 
 CREATE TABLE calendar_subscription (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   calendar_id BIGINT NOT NULL REFERENCES calendar(id) ON DELETE CASCADE,
   user_id BIGINT NOT NULL REFERENCES sys_user(id),
   visible BOOLEAN NOT NULL DEFAULT TRUE,
@@ -96,7 +96,7 @@ CREATE TABLE calendar_subscription (
 );
 
 CREATE TABLE event (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   calendar_id BIGINT NOT NULL REFERENCES calendar(id),
   tag_id BIGINT REFERENCES calendar_tag(id),
   organizer_user_id BIGINT NOT NULL REFERENCES sys_user(id),
@@ -115,7 +115,7 @@ CREATE TABLE event (
 );
 
 CREATE TABLE event_participant (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   event_id BIGINT NOT NULL REFERENCES event(id) ON DELETE CASCADE,
   user_id BIGINT REFERENCES sys_user(id),
   department_id BIGINT REFERENCES sys_department(id),
@@ -123,11 +123,12 @@ CREATE TABLE event_participant (
     CHECK (response_status IN ('ACCEPTED', 'DECLINED', 'TENTATIVE', 'NEEDS_ACTION')),
   response_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK ((user_id IS NOT NULL AND department_id IS NULL) OR (user_id IS NULL AND department_id IS NOT NULL))
+  CHECK ((user_id IS NOT NULL AND department_id IS NULL) OR (user_id IS NULL AND department_id IS NOT NULL)),
+  UNIQUE (event_id, user_id)
 );
 
 CREATE TABLE event_reminder (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   event_id BIGINT NOT NULL REFERENCES event(id) ON DELETE CASCADE,
   minutes_before INTEGER NOT NULL CHECK (minutes_before >= 0),
   method VARCHAR(20) NOT NULL DEFAULT 'SYSTEM' CHECK (method IN ('SYSTEM', 'EMAIL')),
@@ -135,7 +136,7 @@ CREATE TABLE event_reminder (
 );
 
 CREATE TABLE event_recurrence (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   event_id BIGINT NOT NULL UNIQUE REFERENCES event(id) ON DELETE CASCADE,
   rrule TEXT NOT NULL,
   end_at TIMESTAMPTZ,
@@ -144,7 +145,7 @@ CREATE TABLE event_recurrence (
 );
 
 CREATE TABLE event_exception (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   recurrence_id BIGINT NOT NULL REFERENCES event_recurrence(id) ON DELETE CASCADE,
   original_start_at TIMESTAMPTZ NOT NULL,
   exception_type VARCHAR(20) NOT NULL CHECK (exception_type IN ('CANCELLED', 'MOVED')),
@@ -159,7 +160,7 @@ CREATE TABLE event_exception (
 );
 
 CREATE TABLE event_attachment (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   event_id BIGINT NOT NULL REFERENCES event(id) ON DELETE CASCADE,
   uploaded_by BIGINT NOT NULL REFERENCES sys_user(id),
   file_name VARCHAR(200) NOT NULL,
@@ -170,7 +171,7 @@ CREATE TABLE event_attachment (
 );
 
 CREATE TABLE event_todo (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   event_id BIGINT NOT NULL REFERENCES event(id) ON DELETE CASCADE,
   assignee_user_id BIGINT REFERENCES sys_user(id),
   title VARCHAR(120) NOT NULL,
@@ -182,7 +183,7 @@ CREATE TABLE event_todo (
 );
 
 CREATE TABLE export_task (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   name VARCHAR(120) NOT NULL,
   scope VARCHAR(20) NOT NULL CHECK (scope IN ('PERSONAL', 'CALENDAR', 'MANAGEMENT')),
   status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'PROCESSING', 'FINISHED', 'FAILED')),
@@ -194,7 +195,7 @@ CREATE TABLE export_task (
 );
 
 CREATE TABLE backup_record (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   backup_type VARCHAR(20) NOT NULL CHECK (backup_type IN ('DATABASE', 'UPLOADS', 'FULL')),
   action VARCHAR(20) NOT NULL CHECK (action IN ('BACKUP', 'RESTORE_RECORD')),
   status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING', 'FINISHED', 'FAILED')),
@@ -207,7 +208,7 @@ CREATE TABLE backup_record (
 );
 
 CREATE TABLE audit_log (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   operator_user_id BIGINT REFERENCES sys_user(id),
   module VARCHAR(60) NOT NULL,
   action VARCHAR(60) NOT NULL,
@@ -218,7 +219,7 @@ CREATE TABLE audit_log (
 );
 
 CREATE TABLE system_config (
-  id BIGINT PRIMARY KEY,
+  id BIGSERIAL PRIMARY KEY,
   config_key VARCHAR(80) NOT NULL UNIQUE,
   config_value TEXT NOT NULL,
   description VARCHAR(200),
@@ -410,5 +411,24 @@ INSERT INTO system_config (id, config_key, config_value, description, updated_by
   (4, 'calendar.show_lunar', 'true', '日历展示农历信息', 1, '2026-06-05 11:00:00+08'),
   (5, 'calendar.show_holiday', 'true', '日历展示节假日信息', 1, '2026-06-05 11:00:00+08'),
   (6, 'backup.retention_days', '30', '备份文件保留天数', 1, '2026-06-05 11:00:00+08');
+
+-- Reset sequences after explicit ID inserts
+SELECT setval('sys_department_id_seq', (SELECT COALESCE(MAX(id), 1) FROM sys_department));
+SELECT setval('sys_user_id_seq', (SELECT COALESCE(MAX(id), 1) FROM sys_user));
+SELECT setval('calendar_tag_id_seq', (SELECT COALESCE(MAX(id), 1) FROM calendar_tag));
+SELECT setval('calendar_id_seq', (SELECT COALESCE(MAX(id), 1) FROM calendar));
+SELECT setval('calendar_auto_subscribe_scope_id_seq', (SELECT COALESCE(MAX(id), 1) FROM calendar_auto_subscribe_scope));
+SELECT setval('calendar_shared_member_id_seq', (SELECT COALESCE(MAX(id), 1) FROM calendar_shared_member));
+SELECT setval('calendar_subscription_id_seq', (SELECT COALESCE(MAX(id), 1) FROM calendar_subscription));
+SELECT setval('event_id_seq', (SELECT COALESCE(MAX(id), 1) FROM event));
+SELECT setval('event_participant_id_seq', (SELECT COALESCE(MAX(id), 1) FROM event_participant));
+SELECT setval('event_reminder_id_seq', (SELECT COALESCE(MAX(id), 1) FROM event_reminder));
+SELECT setval('event_recurrence_id_seq', (SELECT COALESCE(MAX(id), 1) FROM event_recurrence));
+SELECT setval('event_exception_id_seq', (SELECT COALESCE(MAX(id), 1) FROM event_exception));
+SELECT setval('event_attachment_id_seq', (SELECT COALESCE(MAX(id), 1) FROM event_attachment));
+SELECT setval('event_todo_id_seq', (SELECT COALESCE(MAX(id), 1) FROM event_todo));
+SELECT setval('export_task_id_seq', (SELECT COALESCE(MAX(id), 1) FROM export_task));
+SELECT setval('backup_record_id_seq', (SELECT COALESCE(MAX(id), 1) FROM backup_record));
+SELECT setval('audit_log_id_seq', (SELECT COALESCE(MAX(id), 1) FROM audit_log));
 
 COMMIT;

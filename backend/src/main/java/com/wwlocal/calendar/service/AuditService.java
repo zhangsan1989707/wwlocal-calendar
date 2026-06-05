@@ -13,8 +13,8 @@ public class AuditService {
 
   public void record(Long operatorUserId, String module, String action, String objectType, Object objectId, String summary) {
     jdbc.update("""
-        INSERT INTO audit_log(operator_user_id, module, action, object_type, object_id, change_summary)
+        INSERT INTO audit_log(operator_user_id, module, action, object_type, object_id, detail)
         VALUES (?, ?, ?, ?, ?, ?)
-        """, operatorUserId, module, action, objectType, objectId == null ? null : String.valueOf(objectId), summary);
+        """, operatorUserId, module, action, objectType, objectId, summary);
   }
 }

@@ -16,6 +16,8 @@ public class ApiExceptionHandler {
   @ExceptionHandler(Exception.class)
   @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
   public ApiResponse<Void> error(Exception ex) {
+    System.err.println("[ERROR] Unhandled exception: " + ex.getClass().getName() + ": " + ex.getMessage());
+    ex.printStackTrace(System.err);
     return new ApiResponse<>(false, null, "服务处理失败");
   }
 }

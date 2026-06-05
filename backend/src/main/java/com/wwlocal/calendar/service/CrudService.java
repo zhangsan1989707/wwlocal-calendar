@@ -69,7 +69,8 @@ public class CrudService {
   }
 
   public void disable(String table, long id) {
-    jdbc.update("UPDATE " + table + " SET status = 'INACTIVE', updated_at = now() WHERE id = ?", id);
+    // Uses 'CANCELLED' to comply with event table CHECK constraint (ACTIVE|CANCELLED)
+    jdbc.update("UPDATE " + table + " SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
   }
 
   public void delete(String table, long id) {

@@ -40,7 +40,8 @@ export const useAppStore = defineStore('app', {
     async loadEvents(query = '') {
       try {
         this.events = await api.get<EventItem[]>(`/events${query}`)
-      } catch {
+      } catch (err) {
+        console.warn('loadEvents failed:', err)
         this.events = []
       }
     }

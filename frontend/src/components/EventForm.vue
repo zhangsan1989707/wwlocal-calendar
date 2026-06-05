@@ -51,9 +51,13 @@
           <el-form-item label="提醒">
             <el-select v-model="reminderLabel">
               <el-option label="不提醒" value="不提醒" />
+              <el-option label="即时" value="即时" />
               <el-option label="5分钟前" value="5分钟前" />
               <el-option label="15分钟前" value="15分钟前" />
               <el-option label="30分钟前" value="30分钟前" />
+              <el-option label="1小时前" value="1小时前" />
+              <el-option label="1天前" value="1天前" />
+              <el-option label="自定义" value="自定义" />
             </el-select>
           </el-form-item>
           <el-form-item label="重复">
@@ -80,12 +84,20 @@
           <strong>{{ availabilityTitle }}</strong>
         </div>
         <div class="availability-board">
-          <div class="availability-member">
-            <span>我</span>
+          <div class="availability-member" v-for="member in availabilityMembers" :key="member.id">
+            <span>{{ member.name }}</span>
           </div>
           <div class="availability-grid">
             <span v-for="hour in availabilityHours" :key="hour">{{ hour }}:00</span>
-            <button class="free-block">所有人都有空</button>
+            <div
+              v-for="slot in busySlots"
+              :key="slot.id"
+              class="busy-block"
+              :style="slotStyle(slot)"
+            >
+              {{ slot.title }}
+            </div>
+            <button v-if="!busySlots.length" class="free-block">所有人都有空</button>
           </div>
         </div>
       </section>
@@ -142,6 +154,78 @@ const availabilityTitle = computed(() => {
   return `${date.getMonth() + 1}月${date.getDate()}日 周${'日一二三四五六'[date.getDay()]}`
 })
 
+// Busy slots from freebusy API
+interface BusySlot {
+  id: number
+  title: string
+  start_at: string
+  end_at: string
+  all_day: boolean
+  status: string
+  response_status: string
+}
+const busySlots = ref<BusySlot[]>([])
+
+const availabilityMembers = computed(() => {
+  const members: Array<{ id: number; name: string }> = [
+    { id: props.currentUserId, name: '我' }
+  ]
+  for (const pid of participantIds.value) {
+    if (pid !== props.currentUserId) {
+      const user = props.users.find(u => u.id === pid)
+      members.push({ id: pid, name: user?.name || `用户${pid}` })
+    }
+  }
+  return members
+})
+
+function slotStyle(slot: BusySlot) {
+  const startHour = new Date(slot.start_at).getHours()
+  const startMin = new Date(slot.start_at).getMinutes()
+  const endHour = new Date(slot.end_at).getHours()
+  const endMin = new Date(slot.end_at).getMinutes()
+
+  const gridStartHour = 5 // first hour in grid
+  const rowHeight = 43 // row height from CSS
+
+  const top = (startHour - gridStartHour + startMin / 60) * rowHeight
+  const height = Math.max(((endHour - startHour) + (endMin - startMin) / 60) * rowHeight, 20)
+
+  return {
+    top: `${top}px`,
+    height: `${height}px`
+  }
+}
+
+// Fetch busy slots when participants change
+async function fetchBusySlots() {
+  const ids = [...participantIds.value]
+  if (!ids.length) {
+    busySlots.value = []
+    return
+  }
+  try {
+    const startOfDay = new Date(startDate.value)
+    startOfDay.setHours(0, 0, 0, 0)
+    const endOfDay = new Date(startDate.value)
+    endOfDay.setHours(23, 59, 59, 999)
+
+    const result = await api.post<BusySlot[]>('/freebusy/query', {
+      user_ids: ids,
+      start_at: startOfDay.toISOString(),
+      end_at: endOfDay.toISOString()
+    })
+    busySlots.value = result
+  } catch {
+    busySlots.value = []
+  }
+}
+
+watch(participantIds, fetchBusySlots, { deep: true })
+watch(startDate, () => {
+  if (participantIds.value.length) fetchBusySlots()
+})
+
 watch(
   () => props.modelValue,
   () => {
@@ -153,15 +237,14 @@ watch(
       organizer_user_id: props.event?.organizer_user_id ?? props.currentUserId,
       location: props.event?.location ?? '',
       description: props.event?.description ?? '',
-      tag: props.event?.tag ?? '',
-      tag_color: props.event?.tag_color ?? '',
+      tag_id: props.event?.tag_id ?? undefined,
       all_day: props.event?.all_day ?? false,
       recurrence_rule: props.event?.recurrence_rule ?? '',
       allow_join: props.event?.allow_join ?? false,
       status: 'ACTIVE'
     })
-    const start = props.event ? new Date(props.event.start_time) : new Date(props.initialStart ?? new Date(2026, 5, 5, 11, 30))
-    const end = props.event ? new Date(props.event.end_time) : new Date(props.initialEnd ?? new Date(start.getTime() + 60 * 60 * 1000))
+    const start = props.event ? new Date(props.event.start_at) : new Date(props.initialStart ?? new Date(2026, 5, 5, 11, 30))
+    const end = props.event ? new Date(props.event.end_at) : new Date(props.initialEnd ?? new Date(start.getTime() + 60 * 60 * 1000))
     startDate.value = start
     endDate.value = end
     startTime.value = formatTime(start)
@@ -171,6 +254,21 @@ watch(
   }
 )
 
+// Sync end time when duration changes
+watch(durationLabel, (label) => {
+  const durationMap: Record<string, number> = {
+    '30分钟': 30,
+    '1小时': 60,
+    '2小时': 120
+  }
+  const minutes = durationMap[label]
+  if (!minutes) return
+  const start = mergeDateTime(startDate.value, startTime.value)
+  const end = new Date(start.getTime() + minutes * 60 * 1000)
+  endDate.value = end
+  endTime.value = formatTime(end)
+})
+
 async function submit() {
   if (!form.title || !form.calendar_id || !startDate.value || !endDate.value) {
     ElMessage.warning('请填写必填信息')
@@ -178,26 +276,44 @@ async function submit() {
   }
   const start = mergeDateTime(startDate.value, startTime.value)
   const end = mergeDateTime(endDate.value, endTime.value)
+
+  // Translate reminderLabel to reminders array for backend
+  const reminders: Array<{ minutes_before: number; method: string }> = []
+  const reminderLabelVal = reminderLabel.value
+  if (reminderLabelVal === '即时') {
+    reminders.push({ minutes_before: 0, method: 'SYSTEM' })
+  } else if (reminderLabelVal === '1小时前') {
+    reminders.push({ minutes_before: 60, method: 'SYSTEM' })
+  } else if (reminderLabelVal === '1天前') {
+    reminders.push({ minutes_before: 1440, method: 'SYSTEM' })
+  } else {
+    const reminderMatch = reminderLabelVal.match(/^(\d+)/)
+    if (reminderMatch) {
+      reminders.push({ minutes_before: parseInt(reminderMatch[1]), method: 'SYSTEM' })
+    }
+  }
+
   const payload = {
     ...form,
-    start_time: start.toISOString(),
-    end_time: end.toISOString(),
+    start_at: start.toISOString(),
+    end_at: end.toISOString(),
     participantIds: participantIds.value,
+    reminders: reminders,
     todos: todos.value.filter((item) => item.title),
     operatorUserId: props.currentUserId
   }
   try {
     if (form.id && form.id > 0) {
       await api.put(`/events/${form.id}`, payload)
-    } else if (!form.id || form.id > 0) {
+    } else {
       await api.post('/events', payload)
     }
-  } catch {
-    // 前端可先完成填写闭环，接口恢复后继续沿用同一提交路径。
+    ElMessage.success('已保存')
+    visible.value = false
+    emit('saved')
+  } catch (err: any) {
+    ElMessage.error(err?.message || '保存失败，请稍后重试')
   }
-  ElMessage.success('已保存')
-  visible.value = false
-  emit('saved')
 }
 
 function setToday() {
@@ -345,6 +461,23 @@ function formatTime(date: Date) {
   background: #e8f9ed;
   text-align: left;
   font-weight: 700;
+}
+
+.busy-block {
+  position: absolute;
+  left: 0;
+  right: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 2px 8px;
+  border: 1px solid #ef4444;
+  border-left-width: 3px;
+  border-radius: 3px;
+  color: #b91c1c;
+  background: #fef2f2;
+  font-size: 12px;
+  font-weight: 600;
 }
 
 .event-footer {

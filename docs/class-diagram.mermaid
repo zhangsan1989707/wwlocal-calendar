@@ -1,0 +1,108 @@
+classDiagram
+    direction TB
+
+    class EventController {
+        -EventService events
+        +list(params) ApiResponse~List~
+        +create(payload) ApiResponse~Map~
+        +update(id, payload) ApiResponse~Map~
+        +delete(id, operatorUserId, scope) ApiResponse~Void~
+        +respond(id, payload) ApiResponse~Void~
+        +freebusy(payload) ApiResponse~List~
+    }
+
+    class EventService {
+        -CrudService crud
+        -JdbcTemplate jdbc
+        -AuditService audit
+        +EVENT_COLUMNS$ Set~String~
+        +search(params) List~Map~
+        +save(payload) Map~String,Object~
+        +remove(id, operatorUserId, scope) void
+        +respond(eventId, userId, status) void
+        +freebusy(payload) List~Map~
+        +exportEvents(exportDir, userId) Path
+        -replaceParticipants(eventId, ids) void
+        -replaceTodos(eventId, todos) void
+        -replaceReminders(eventId, reminders) void
+        -replaceRecurrence(eventId, rrule, endAt) void
+    }
+
+    class CrudService {
+        -JdbcTemplate jdbc
+        +list(table, filters, params, orderBy) List~Map~
+        +create(table, columns, payload) Map~String,Object~
+        +update(table, columns, id, payload) Map~String,Object~
+        +disable(table, id) void
+        +delete(table, id) void
+        -filtered(columns, payload) Map~String,Object~
+    }
+
+    class AuditService {
+        -JdbcTemplate jdbc
+        +record(operatorUserId, module, action, objectType, objectId, detail) void
+    }
+
+    class ExportTaskService {
+        -JdbcTemplate jdbc
+        +create(name, scope, createdBy) long
+        +complete(id, filePath) void
+        +fail(id, reason) void
+    }
+
+    class EventItem {
+        <<frontend TypeScript>>
+        +number id
+        +number calendar_id
+        +number organizer_user_id
+        +string title
+        +string? location
+        +string? description
+        +number? tag_id
+        +string? tag_name
+        +string? tag_color
+        +string start_at
+        +string end_at
+        +boolean all_day
+        +string? timezone
+        +string? visibility
+        +string status
+        +string? calendar_name
+        +string? calendar_color
+        +string? organizer_name
+    }
+
+    class EventFormData {
+        <<frontend payload>>
+        +number? id
+        +number calendar_id
+        +number organizer_user_id
+        +string title
+        +string? location
+        +string? description
+        +number? tag_id
+        +string start_at
+        +string end_at
+        +boolean all_day
+        +string? timezone
+        +number[] participantIds
+        +object[] todos
+        +object[] reminders
+        +string? rrule
+        +string? recurrence_end_at
+        +number operatorUserId
+    }
+
+    class ApiResponse~T~ {
+        <<backend record>>
+        +boolean success
+        +T data
+        +string message
+    }
+
+    EventController --> EventService : depends on
+    EventService --> CrudService : depends on
+    EventService --> AuditService : depends on
+    EventService --> ExportTaskService : depends on
+    EventItem .. EventFormData : maps to
+    EventController .. ApiResponse : returns

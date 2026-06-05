@@ -457,13 +457,21 @@ function editEvent(event: EventItem) {
 }
 
 async function removeEvent(event: EventItem) {
-  await ElMessageBox.confirm('确认删除该日程？')
-  if (event.id > 0) {
-    await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}`)
+  try {
+    await ElMessageBox.confirm('确认删除该日程？')
+  } catch {
+    return
   }
-  ElMessage.success('已删除')
-  detailVisible.value = false
-  await reload()
+  try {
+    if (event.id > 0) {
+      await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
+    }
+    ElMessage.success('已删除')
+    detailVisible.value = false
+    await reload()
+  } catch (err: any) {
+    ElMessage.error(err?.message || '删除失败')
+  }
 }
 
 function goToday() {
@@ -1046,6 +1054,11 @@ async function exportEvents() {
   .mobile-day {
     position: relative;
     min-height: 74px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
     border: 0;
     color: #111;
     background: transparent;
@@ -1066,7 +1079,6 @@ async function exportEvents() {
 
   .mobile-day span {
     display: block;
-    margin-top: -4px;
     color: #7f8791;
     font-size: 13px;
   }
@@ -1083,7 +1095,7 @@ async function exportEvents() {
 
   .mobile-day.active span {
     color: #fff;
-    transform: translateY(-24px);
+    transform: translateY(-2px);
   }
 
   .mobile-day i {

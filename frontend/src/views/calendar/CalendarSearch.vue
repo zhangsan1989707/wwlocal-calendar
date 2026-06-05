@@ -11,8 +11,8 @@
           <el-select v-model="calendarId" placeholder="日历" clearable>
             <el-option v-for="item in store.calendars" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
-          <el-select v-model="tag" placeholder="标签" clearable>
-            <el-option v-for="item in store.tags" :key="item.id" :label="item.name" :value="item.name" />
+          <el-select v-model="tagId" placeholder="标签" clearable>
+            <el-option v-for="item in store.tags" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
           <el-date-picker v-model="range" type="daterange" start-placeholder="开始日期" end-placeholder="结束日期" />
           <el-button type="primary" @click="search">查询</el-button>
@@ -20,13 +20,13 @@
         <el-table :data="events" stripe>
           <el-table-column prop="title" label="标题" min-width="180" />
           <el-table-column prop="calendar_name" label="日历" min-width="140" />
-          <el-table-column prop="tag" label="标签" width="100" />
+          <el-table-column prop="tag_name" label="标签" width="100" />
           <el-table-column prop="location" label="地点" min-width="140" />
           <el-table-column label="开始时间" min-width="180">
-            <template #default="{ row }">{{ format(row.start_time) }}</template>
+            <template #default="{ row }">{{ format(row.start_at) }}</template>
           </el-table-column>
           <el-table-column label="结束时间" min-width="180">
-            <template #default="{ row }">{{ format(row.end_time) }}</template>
+            <template #default="{ row }">{{ format(row.end_at) }}</template>
           </el-table-column>
         </el-table>
       </section>
@@ -43,7 +43,7 @@ import { useAppStore } from '../../stores/app'
 const store = useAppStore()
 const keyword = ref('')
 const calendarId = ref<number>()
-const tag = ref('')
+const tagId = ref<number>()
 const range = ref<[Date, Date]>()
 const events = ref<EventItem[]>([])
 
@@ -56,7 +56,7 @@ async function search() {
   const params = new URLSearchParams()
   if (keyword.value) params.set('keyword', keyword.value)
   if (calendarId.value) params.set('calendarId', String(calendarId.value))
-  if (tag.value) params.set('tag', tag.value)
+  if (tagId.value) params.set('tag_id', String(tagId.value))
   if (range.value) {
     params.set('start', range.value[0].toISOString())
     params.set('end', range.value[1].toISOString())

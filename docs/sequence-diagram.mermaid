@@ -1,0 +1,42 @@
+sequenceDiagram
+    actor User
+    participant EF as EventForm.vue
+    participant Store as appStore
+    participant HTTP as http.ts
+    participant EC as EventController
+    participant ES as EventService
+    participant CS as CrudService
+    participant DB as PostgreSQL
+
+    User->>EF: 填写表单，点击"保存日程"
+    EF->>EF: validate() — 检查必填字段
+    alt 校验失败
+        EF->>User: ElMessage.warning('请填写必填信息')
+    else 校验通过
+        EF->>EF: buildPayload() — 组装 payload
+        EF->>HTTP: api.post('/events', payload)
+        HTTP->>EC: POST /api/events
+        EC->>ES: save(payload)
+        ES->>ES: id == null → create 分支
+        ES->>CS: create("event", EVENT_COLUMNS, payload)
+        CS->>CS: filtered(columns, payload) — 白名单过滤
+        CS->>DB: INSERT INTO event(...) VALUES (...) RETURNING *
+        DB-->>CS: 新记录（含生成的 id）
+        CS-->>ES: Map~String,Object~
+        ES->>ES: replaceParticipants(eventId, participantIds)
+        ES->>DB: DELETE FROM event_participant + INSERT
+        ES->>ES: replaceTodos(eventId, todos)
+        ES->>DB: DELETE FROM event_todo + INSERT
+        ES->>ES: replaceReminders(eventId, reminders)
+        ES->>DB: DELETE FROM event_reminder + INSERT
+        ES->>ES: replaceRecurrence(eventId, rrule, endAt)
+        ES->>DB: DELETE FROM event_recurrence + INSERT
+        ES->>ES: audit.record(...)
+        ES->>DB: INSERT INTO audit_log
+        ES-->>EC: Map~String,Object~
+        EC-->>HTTP: ApiResponse{success:true, data:{...}}
+        HTTP->>HTTP: JSON.parse → check success → return data
+        HTTP-->>EF: EventItem
+        EF->>User: ElMessage.success('已保存')
+        EF->>EF: emit('saved'), visible = false
+    end

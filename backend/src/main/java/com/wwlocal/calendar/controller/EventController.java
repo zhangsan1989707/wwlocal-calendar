@@ -40,8 +40,10 @@ public class EventController {
   }
 
   @DeleteMapping("/events/{id}")
-  public ApiResponse<Void> delete(@PathVariable long id, @RequestParam(required = false) Long operatorUserId) {
-    events.remove(id, operatorUserId);
+  public ApiResponse<Void> delete(@PathVariable long id,
+                                  @RequestParam(required = false) Long operatorUserId,
+                                  @RequestParam(required = false, defaultValue = "single") String scope) {
+    events.remove(id, operatorUserId, scope);
     return ApiResponse.ok();
   }
 

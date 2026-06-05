@@ -11,12 +11,16 @@ spring:
     driver-class-name: org.postgresql.Driver
   sql:
     init:
-      mode: ${SQL_INIT_MODE:always}
-      schema-locations: classpath:database/schema.sql
-      data-locations: classpath:database/data.sql
+      # 设为 never，由 DBA/开发者通过 psql < database/init.sql 手动初始化
+      # 项目使用 database/init.sql 作为唯一 Schema 标准文件
+      mode: ${SQL_INIT_MODE:never}
+      # schema-locations 和 data-locations 已废弃，不再指向过期 schema 文件
+      # 如需自动初始化，请将 database/init.sql 复制到 classpath 并取消下面注释：
+      # schema-locations: classpath:init.sql
+      # data-locations:
 
 app:
   upload-dir: ${UPLOAD_DIR:../uploads}
   export-dir: ${EXPORT_DIR:../exports}
   backup-dir: ${BACKUP_DIR:../backups}
-  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173}
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://127.0.0.1:5173,http://localhost:3007,http://127.0.0.1:3007}

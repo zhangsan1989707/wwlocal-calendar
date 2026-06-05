@@ -36,15 +36,16 @@ export interface EventItem {
   title: string
   location?: string
   description?: string
-  tag?: string
+  tag_id?: number
+  tag_name?: string
   tag_color?: string
-  start_time: string
-  end_time: string
+  start_at: string
+  end_at: string
   all_day: boolean
+  timezone?: string
+  visibility?: string
   calendar_name?: string
   calendar_color?: string
-  recurrence_rule?: string
-  allow_join?: boolean
   status: string
 }
 
