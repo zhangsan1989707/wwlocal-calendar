@@ -1,22 +1,29 @@
 <template>
   <div class="calendar-app">
     <header class="calendar-window-bar desktop-calendar">
-      <strong>日程</strong>
-      <!-- 管理后台入口已隐藏，只能通过固定 URL /admin 访问 -->
-      <!-- <router-link class="admin-login-link" to="/admin">登录管理后台</router-link> -->
+      <div class="header-brand">
+        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+          <rect width="22" height="22" rx="6" fill="var(--calendar-primary)"/>
+          <rect x="4" y="5" width="14" height="2" rx="1" fill="white"/>
+          <rect x="4" y="9" width="10" height="2" rx="1" fill="white" opacity="0.7"/>
+          <rect x="4" y="13" width="12" height="2" rx="1" fill="white" opacity="0.5"/>
+          <rect x="4" y="17" width="8" height="2" rx="1" fill="white" opacity="0.3"/>
+        </svg>
+        <strong>日程</strong>
+      </div>
     </header>
 
     <main class="calendar-workspace desktop-calendar">
       <aside class="calendar-sidebar">
         <router-link class="search-box" to="/calendar/search">
           <el-icon><Search /></el-icon>
-          <span>搜索</span>
+          <span>搜索日程</span>
         </router-link>
 
         <section class="mini-calendar">
           <div class="mini-header">
             <strong>{{ monthTitle }}</strong>
-            <span>
+            <span class="mini-nav">
               <el-button text :icon="ArrowUp" @click="moveMonth(-1)" />
               <el-button text :icon="ArrowDown" @click="moveMonth(1)" />
             </span>
@@ -24,32 +31,35 @@
           <div class="mini-weekdays">
             <span v-for="item in weekdays" :key="item">{{ item }}</span>
           </div>
-          <button
-            v-for="day in monthDays"
-            :key="day.key"
-            class="mini-day"
-            :class="{ active: isSameDate(day.date, selectedDate), muted: !day.currentMonth }"
-            @click="selectedDate = day.date"
-          >
-            {{ day.date.getDate() }}
-          </button>
+          <div class="mini-grid">
+            <button
+              v-for="day in monthDays"
+              :key="day.key"
+              class="mini-day"
+              :class="{ active: isSameDate(day.date, selectedDate), muted: !day.currentMonth, today: isSameDate(day.date, today) }"
+              @click="selectedDate = day.date"
+            >
+              {{ day.date.getDate() }}
+            </button>
+          </div>
         </section>
 
         <section class="calendar-groups">
           <div class="group-title">
-            <strong>添加日历</strong>
-            <el-button text :icon="Plus" @click="() => openCreate()" />
+            <strong>我的日历</strong>
+            <el-button type="primary" plain :icon="Plus" @click="() => openCreate()" />
           </div>
           <div class="group-block">
-            <p>我的日历</p>
             <label v-for="item in personalCalendars" :key="item.id" class="calendar-check">
               <input v-model="visibleCalendarIds" type="checkbox" :value="item.id" />
               <i :style="{ background: item.color }" />
               <span>{{ item.name }}</span>
             </label>
           </div>
-          <div class="group-block">
-            <p>共享给我的日历</p>
+          <div v-if="sharedCalendars.length" class="group-title group-title-split">
+            <strong>共享日历</strong>
+          </div>
+          <div v-if="sharedCalendars.length" class="group-block">
             <label v-for="item in sharedCalendars" :key="item.id" class="calendar-check">
               <input v-model="visibleCalendarIds" type="checkbox" :value="item.id" />
               <i :style="{ background: item.color }" />
@@ -60,49 +70,51 @@
       </aside>
 
       <section class="calendar-stage">
-        <div class="calendar-toolbar-main">
-          <el-button :icon="Calendar" @click="() => openCreate()">创建日程</el-button>
+        <div class="calendar-toolbar">
+          <el-button type="primary" :icon="Plus" @click="() => openCreate()">新建日程</el-button>
           <div class="period-title">
-            <strong>{{ stageTitle }}</strong>
             <el-button text :icon="ArrowLeft" @click="move(-1)" />
+            <strong>{{ stageTitle }}</strong>
             <el-button text :icon="ArrowRight" @click="move(1)" />
           </div>
           <div class="view-actions">
-            <el-button @click="goToday">今天</el-button>
+            <el-button @click="goToday" class="today-btn">今天</el-button>
             <div class="view-switch" role="group" aria-label="日历视图">
               <button v-for="option in viewOptions" :key="option.value" type="button" :class="{ active: view === option.value }" @click="view = option.value">
                 {{ option.label }}
               </button>
             </div>
-            <el-button :icon="Files" @click="exportEvents" />
+            <el-button :icon="Download" @click="exportEvents" />
           </div>
         </div>
 
         <div v-if="view === 'month'" class="month-board">
           <div class="weekday-row">
-            <span v-for="item in weekdayLabels" :key="item">{{ item }}</span>
+            <span v-for="(item, i) in weekdayLabels" :key="item"><em>{{ item }}</em></span>
           </div>
           <div class="month-grid-view">
             <button
               v-for="day in monthDays"
               :key="day.key"
               class="month-cell-view"
-              :class="{ today: isSameDate(day.date, today), muted: !day.currentMonth }"
+              :class="{ muted: !day.currentMonth }"
               @click="openCreate(day.date)"
             >
-              <span class="date-line">
+              <div class="date-wrap" :class="{ today: isSameDate(day.date, today) }">
                 <strong>{{ day.date.getDate() }}</strong>
                 <small>{{ lunarText(day.date) }}</small>
-              </span>
-              <span
-                v-for="event in eventsByDay(day.date)"
-                :key="event.id"
-                class="event-pill"
-                :style="{ background: event.calendar_color || event.tag_color || '#2f7cf6' }"
-                @click.stop="selectEvent(event)"
-              >
-                {{ event.title }}
-              </span>
+              </div>
+              <div class="cell-events">
+                <span
+                  v-for="event in eventsByDay(day.date)"
+                  :key="event.id"
+                  class="event-pill"
+                  :style="{ background: event.calendar_color || event.tag_color || 'var(--calendar-primary)' }"
+                  @click.stop="selectEvent(event)"
+                >
+                  {{ event.title }}
+                </span>
+              </div>
             </button>
           </div>
         </div>
@@ -116,7 +128,7 @@
               :class="{ active: isSameDate(day, selectedDate) }"
               @click="openCreate(day)"
             >
-              <span>{{ weekdayLabels[day.getDay()] }}</span>
+              <span>{{ weekdayShortLabels[day.getDay()] }}</span>
               <strong>{{ day.getDate() }}</strong>
               <small>{{ lunarText(day) }}</small>
             </button>
@@ -153,21 +165,33 @@
     <main class="mobile-calendar">
       <section v-if="!mobileSettingsVisible" class="mobile-main">
         <header class="mobile-topbar">
-          <button class="mobile-icon-button" type="button" @click="goToday">
-            <el-icon><ArrowLeft /></el-icon>
-          </button>
+          <div class="mobile-brand">
+            <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+              <rect width="22" height="22" rx="6" fill="var(--calendar-primary)"/>
+              <rect x="4" y="5" width="14" height="2" rx="1" fill="white"/>
+              <rect x="4" y="9" width="10" height="2" rx="1" fill="white" opacity="0.7"/>
+              <rect x="4" y="13" width="12" height="2" rx="1" fill="white" opacity="0.5"/>
+            </svg>
+          </div>
           <strong>{{ monthTitle }}</strong>
           <div class="mobile-actions">
-            <router-link class="mobile-icon-button" to="/calendar/search">
+            <router-link class="mobile-icon-btn" to="/calendar/search">
               <el-icon><Search /></el-icon>
             </router-link>
-            <!-- 管理后台入口已隐藏，只能通过固定 URL /admin 访问 -->
-            <!-- <router-link class="mobile-admin-link" to="/admin">登录管理后台</router-link> -->
-            <button class="mobile-icon-button" type="button" @click="() => openCreate()">
+            <button class="mobile-icon-btn" type="button" @click="() => openCreate()">
               <el-icon><Plus /></el-icon>
+            </button>
+            <button class="mobile-icon-btn" type="button" @click="goToday">
+              <span class="today-dot">今</span>
             </button>
           </div>
         </header>
+
+        <div class="mobile-week-nav">
+          <el-button text :icon="ArrowLeft" @click="moveMonth(-1)" />
+          <span>{{ monthTitle }}</span>
+          <el-button text :icon="ArrowRight" @click="moveMonth(1)" />
+        </div>
 
         <section class="mobile-month">
           <div class="mobile-weekdays">
@@ -188,10 +212,22 @@
 
         <section class="mobile-agenda">
           <div class="mobile-agenda-title">
-            <strong>今天 · {{ selectedDate.getMonth() + 1 }}月{{ selectedDate.getDate() }}日 {{ weekdayLabels[selectedDate.getDay()] }}</strong>
-            <button type="button" @click="mobileSettingsVisible = true">日程设置</button>
+            <div class="mobile-date-info">
+              <strong>{{ selectedDate.getMonth() + 1 }}月{{ selectedDate.getDate() }}日</strong>
+              <span>{{ weekdayLabels[selectedDate.getDay()] }}</span>
+            </div>
+            <button type="button" @click="mobileSettingsVisible = true">
+              <el-icon><Setting /></el-icon>
+              设置
+            </button>
           </div>
-          <button class="mobile-new-row" type="button" @click="() => openCreate()">新建日程</button>
+          <button class="mobile-new-row" type="button" @click="() => openCreate()">
+            <el-icon><Plus /></el-icon>
+            新建日程
+          </button>
+          <div v-if="eventsByDay(selectedDate).length === 0" class="mobile-empty-day">
+            <span>今日无日程</span>
+          </div>
           <button
             v-for="event in eventsByDay(selectedDate)"
             :key="event.id"
@@ -199,8 +235,8 @@
             type="button"
             @click="selectEvent(event)"
           >
-            <i :style="{ background: event.calendar_color || event.tag_color || '#2f7cf6' }" />
-            <span>{{ event.title }}</span>
+            <i :style="{ background: event.calendar_color || event.tag_color || 'var(--calendar-primary)' }" />
+            <span class="mobile-event-title">{{ event.title }}</span>
             <small>{{ timeText(event) }}</small>
           </button>
         </section>
@@ -236,10 +272,12 @@
 
         <section class="mobile-calendar-card">
           <p>我的日历</p>
-          <div class="mobile-calendar-line">
-            <i />
-            <strong>李宇航的日历</strong>
-            <span>ⓘ</span>
+          <div v-for="item in personalCalendars" :key="item.id" class="mobile-calendar-line">
+            <i :style="{ background: item.color }" />
+            <div>
+              <strong>{{ item.name }}</strong>
+            </div>
+            <el-icon><ArrowRight /></el-icon>
           </div>
         </section>
 
@@ -251,7 +289,7 @@
               <strong>{{ item.name }}</strong>
               <small>由成员共享</small>
             </div>
-            <span>ⓘ</span>
+            <el-icon><ArrowRight /></el-icon>
           </div>
         </section>
 
@@ -301,7 +339,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calendar, Files, Plus, Search } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calendar, Download, Plus, Search, Setting } from '@element-plus/icons-vue'
 import EventDetail from '../../components/EventDetail.vue'
 import EventForm from '../../components/EventForm.vue'
 import { api, downloadFile } from '../../api/http'
@@ -325,6 +363,7 @@ const viewOptions = [
 ]
 const weekdays = ['日', '一', '二', '三', '四', '五', '六']
 const weekdayLabels = ['周日', '周一', '周二', '周三', '周四', '周五', '周六']
+const weekdayShortLabels = ['日', '一', '二', '三', '四', '五', '六']
 const hours = Array.from({ length: 11 }, (_, index) => index + 8)
 const visibleCalendarIds = ref<number[]>([])
 const formVisible = ref(false)
@@ -338,10 +377,10 @@ const mobileCalendarSheetVisible = ref(false)
 const mobileViewMode = ref<'day' | 'three' | 'week'>('day')
 
 const localCalendars: CalendarItem[] = [
-  { id: -1, name: '李宇航的日历', type: 'PERSONAL', color: '#2f7cf6', status: 'ACTIVE' },
-  { id: -2, name: '产品发布日历', type: 'SHARED', color: '#e8b22c', status: 'ACTIVE' },
-  { id: -3, name: '部门协作日历', type: 'SHARED', color: '#e84b55', status: 'ACTIVE' },
-  { id: -4, name: '项目日程', type: 'SHARED', color: '#4f8eed', status: 'ACTIVE' }
+  { id: -1, name: '李宇航的日历', type: 'PERSONAL', color: '#3b82f6', status: 'ACTIVE' },
+  { id: -2, name: '产品发布日历', type: 'SHARED', color: '#f59e0b', status: 'ACTIVE' },
+  { id: -3, name: '部门协作日历', type: 'SHARED', color: '#ef4444', status: 'ACTIVE' },
+  { id: -4, name: '项目日程', type: 'SHARED', color: '#10b981', status: 'ACTIVE' }
 ]
 
 const localEvents: EventItem[] = [
@@ -354,7 +393,7 @@ const localEvents: EventItem[] = [
     end_time: new Date(2026, 5, 5, 12, 30).toISOString(),
     all_day: false,
     calendar_name: '产品发布日历',
-    calendar_color: '#2f7cf6',
+    calendar_color: '#3b82f6',
     status: 'ACTIVE'
   },
   {
@@ -366,7 +405,7 @@ const localEvents: EventItem[] = [
     end_time: new Date(2026, 5, 19, 18, 0).toISOString(),
     all_day: true,
     calendar_name: '项目日程',
-    calendar_color: '#4f8eed',
+    calendar_color: '#10b981',
     status: 'ACTIVE'
   }
 ]
@@ -511,12 +550,12 @@ function eventStyle(event: EventItem) {
   const end = new Date(endStr!)
   const top = Math.max(0, (start.getHours() - 8) * 72 + start.getMinutes() * 1.2)
   const height = Math.max(42, (end.getTime() - start.getTime()) / 60000 * 1.2)
-  const color = event.calendar_color || event.tag_color || '#2f7cf6'
+  const color = event.calendar_color || event.tag_color || 'var(--calendar-primary)'
   return {
     top: `${top}px`,
     height: `${height}px`,
     borderColor: color,
-    background: color === '#2f7cf6' ? '#e8f0ff' : '#f6f8fc'
+    background: `${color}18`
   }
 }
 
@@ -549,45 +588,46 @@ async function exportEvents() {
   min-height: 100vh;
   overflow: hidden;
   color: var(--calendar-text);
-  background: var(--calendar-surface);
+  background: var(--calendar-bg);
 }
 
+/* ===== Header ===== */
 .calendar-window-bar {
   height: 60px;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 0 28px;
   border-bottom: 1px solid var(--calendar-border);
-  background: #f1f4f8;
-  font-size: 20px;
+  background: var(--calendar-surface);
+  box-shadow: var(--calendar-shadow-sm);
 }
 
-.admin-login-link {
-  height: 34px;
-  display: inline-flex;
+.header-brand {
+  display: flex;
   align-items: center;
-  padding: 0 14px;
-  border: 1px solid #cfd6df;
-  border-radius: 4px;
-  color: #1f2937;
-  background: #fff;
-  font-size: 14px;
+  gap: 10px;
+  font-size: 17px;
   font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
+/* ===== Workspace Layout ===== */
 .calendar-workspace {
   display: grid;
   grid-template-columns: var(--calendar-sidebar-width) minmax(0, 1fr);
   height: calc(100vh - 60px);
 }
 
+/* ===== Sidebar ===== */
 .calendar-sidebar {
   min-width: 0;
   padding: 16px 14px 28px;
   overflow: auto;
   border-right: 1px solid var(--calendar-border);
   background: var(--calendar-sidebar);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
 }
 
 .search-box {
@@ -595,82 +635,123 @@ async function exportEvents() {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 0 12px;
+  padding: 0 14px;
   border-radius: var(--calendar-control-radius);
   color: var(--calendar-soft-text);
-  background: #e2e7ef;
-  font-size: 16px;
+  background: var(--calendar-bg);
+  font-size: 14px;
   font-weight: 600;
+  border: 1px solid var(--calendar-border);
+  transition: all 0.18s ease;
+}
+
+.search-box:hover {
+  border-color: var(--calendar-primary);
+  color: var(--calendar-primary);
+  background: var(--calendar-primary-bg);
+  box-shadow: var(--calendar-shadow-sm);
 }
 
 .mini-calendar {
-  display: grid;
-  grid-template-columns: repeat(7, 1fr);
-  gap: 6px 10px;
-  margin-top: 16px;
+  margin-top: 8px;
 }
 
 .mini-header {
-  grid-column: 1 / -1;
-  height: 34px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  font-size: 16px;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
 }
 
-.mini-header :deep(.el-button) {
+.mini-nav {
+  display: flex;
+  gap: 2px;
+}
+
+.mini-nav :deep(.el-button) {
   padding: 4px;
-  color: #1f2937;
+  color: var(--calendar-soft-text);
 }
 
 .mini-weekdays {
-  grid-column: 1 / -1;
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  color: var(--calendar-muted);
+  margin-bottom: 6px;
   text-align: center;
+  font-size: 11px;
   font-weight: 600;
+  color: var(--calendar-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.mini-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 2px;
 }
 
 .mini-day {
-  width: 26px;
-  height: 26px;
-  justify-self: center;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   border: 0;
   border-radius: 50%;
   color: var(--calendar-text);
   background: transparent;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
 .mini-day.muted {
   color: var(--calendar-muted);
 }
 
+.mini-day.today:not(.active) {
+  color: var(--calendar-primary);
+  font-weight: 700;
+}
+
 .mini-day.active {
   color: #fff;
   background: var(--calendar-primary);
-  box-shadow: 0 0 0 2px #d8e7ff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35);
 }
 
+.mini-day:hover:not(.active) {
+  background: var(--calendar-bg);
+  color: var(--calendar-text);
+}
+
+/* ===== Calendar Groups ===== */
 .calendar-groups {
-  margin-top: 18px;
-  border-top: 1px solid #dfe5ee;
+  margin-top: 12px;
 }
 
 .group-title {
-  height: 48px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 1px solid #dfe5ee;
+  font-size: 13px;
+}
+
+.group-title-split {
+  margin-top: 10px;
+  border-top: 1px solid var(--calendar-border-soft);
+  padding-top: 10px;
 }
 
 .group-block {
-  padding: 12px 0;
-  border-bottom: 1px solid #dfe5ee;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-bottom: 8px;
 }
 
 .group-block p {
@@ -680,12 +761,20 @@ async function exportEvents() {
 }
 
 .calendar-check {
-  min-height: 34px;
+  min-height: 32px;
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-weight: 700;
+  gap: 10px;
+  padding: 0 6px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.calendar-check:hover {
+  background: var(--calendar-bg);
 }
 
 .calendar-check input {
@@ -693,177 +782,227 @@ async function exportEvents() {
 }
 
 .calendar-check i {
-  width: 14px;
-  height: 14px;
+  width: 10px;
+  height: 10px;
   border-radius: 3px;
-  position: relative;
+  flex-shrink: 0;
 }
 
 .calendar-check input:checked + i::after {
   content: "";
-  position: absolute;
-  left: 4px;
-  top: 1px;
-  width: 4px;
-  height: 8px;
+  display: block;
+  width: 6px;
+  height: 10px;
   border: solid #fff;
   border-width: 0 2px 2px 0;
-  transform: rotate(45deg);
+  transform: rotate(45deg) translate(-1px, -1px);
 }
 
+/* ===== Stage / Main Content ===== */
 .calendar-stage {
   min-width: 0;
-  background: var(--calendar-surface);
+  background: var(--calendar-bg);
+  display: flex;
+  flex-direction: column;
 }
 
-.calendar-toolbar-main {
+/* ===== Toolbar ===== */
+.calendar-toolbar {
   height: var(--calendar-toolbar-height);
-  display: grid;
-  grid-template-columns: 180px minmax(260px, 1fr) 300px;
+  display: flex;
   align-items: center;
   gap: 16px;
   padding: 0 24px;
   border-bottom: 1px solid var(--calendar-border);
+  background: var(--calendar-surface);
 }
 
 .period-title {
-  justify-self: center;
+  flex: 1;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 8px;
-  font-size: 20px;
-}
-
-.period-title strong {
-  min-width: 150px;
-  text-align: center;
+  font-size: 18px;
+  font-weight: 700;
 }
 
 .view-actions {
   display: flex;
-  justify-content: flex-end;
   align-items: center;
   gap: 8px;
 }
 
+.today-btn {
+  font-weight: 600;
+  color: var(--calendar-primary);
+}
+
 .view-switch {
   display: inline-flex;
-  align-items: center;
   height: 34px;
   padding: 3px;
-  border-radius: 4px;
-  background: #eef2f7;
+  border-radius: 8px;
+  background: var(--calendar-bg);
+  border: 1px solid var(--calendar-border);
 }
 
 .view-switch button {
   min-width: 42px;
   height: 28px;
   border: 0;
-  border-radius: 4px;
-  color: #111827;
+  border-radius: 6px;
+  color: var(--calendar-soft-text);
   background: transparent;
-  font-weight: 700;
+  font-size: 13px;
+  font-weight: 600;
   cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.view-switch button:hover {
+  color: var(--calendar-text);
+  background: var(--calendar-surface);
 }
 
 .view-switch button.active {
-  background: #fff;
-  box-shadow: 0 1px 3px rgba(17, 24, 39, 0.08);
+  background: var(--calendar-primary);
+  color: #fff;
+  box-shadow: 0 1px 4px rgba(59, 130, 246, 0.3);
 }
 
+/* ===== Month Board ===== */
 .month-board,
 .agenda-board {
-  height: calc(100vh - 138px);
+  flex: 1;
   overflow: auto;
 }
 
 .weekday-row {
   display: grid;
   grid-template-columns: repeat(7, minmax(132px, 1fr));
-  height: 42px;
-  border-bottom: 1px solid var(--calendar-border-soft);
+  height: 44px;
+  border-bottom: 1px solid var(--calendar-border);
+  background: var(--calendar-surface);
+  position: sticky;
+  top: 0;
+  z-index: 2;
 }
 
 .weekday-row span {
   display: flex;
   align-items: center;
   padding-left: 12px;
-  color: var(--calendar-soft-text);
+  font-size: 12px;
   font-weight: 700;
+  color: var(--calendar-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
 }
 
 .month-grid-view {
   display: grid;
   grid-template-columns: repeat(7, minmax(132px, 1fr));
+  background: var(--calendar-border-soft);
+  gap: 1px;
 }
 
 .month-cell-view {
   min-height: var(--calendar-cell-height);
-  padding: 10px 10px 8px;
+  padding: 8px 10px 8px;
   border: 0;
-  border-right: 1px solid var(--calendar-border-soft);
-  border-bottom: 1px solid var(--calendar-border-soft);
   background: var(--calendar-surface);
   text-align: left;
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  transition: background 0.12s ease;
 }
 
 .month-cell-view:hover {
-  background: #f8fbff;
+  background: var(--calendar-primary-bg);
 }
 
 .month-cell-view.muted {
-  color: var(--calendar-muted);
+  background: var(--calendar-bg);
 }
 
-.date-line {
+.date-wrap {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  gap: 8px;
-  min-height: 28px;
+  gap: 6px;
+  height: 28px;
 }
 
-.date-line strong {
-  min-width: 28px;
+.date-wrap strong {
+  width: 28px;
   height: 28px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 16px;
-}
-
-.date-line small {
-  color: #9aa3b1;
   font-size: 14px;
+  font-weight: 700;
+  border-radius: 50%;
+  transition: all 0.15s ease;
 }
 
-.month-cell-view.today .date-line strong {
-  border-radius: 50%;
-  color: #fff;
+.date-wrap small {
+  color: var(--calendar-muted);
+  font-size: 11px;
+}
+
+.date-wrap.today strong {
   background: var(--calendar-primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35);
+}
+
+.cell-events {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
 }
 
 .event-pill {
   display: block;
-  width: 100%;
-  margin-top: 7px;
-  padding: 5px 8px;
-  border: 0;
-  border-radius: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
   color: #fff;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  line-height: 1.5;
+  text-shadow: 0 1px 1px rgba(0,0,0,0.15);
 }
 
+.event-pill:hover {
+  opacity: 0.85;
+  transform: translateX(2px);
+}
+
+/* ===== Agenda / Week / Day View ===== */
 .day-header-row {
   display: grid;
   grid-template-columns: 72px repeat(7, minmax(132px, 1fr));
-  height: 116px;
-  border-bottom: 1px solid var(--calendar-border-soft);
+  height: 96px;
+  border-bottom: 1px solid var(--calendar-border);
+  background: var(--calendar-surface);
+}
+
+.day-header-row span {
+  display: flex;
+  align-items: flex-end;
+  padding: 0 0 8px 12px;
+  font-size: 11px;
+  color: var(--calendar-muted);
+  text-transform: uppercase;
+  font-weight: 700;
+  letter-spacing: 0.04em;
 }
 
 .agenda-board.single .day-header-row {
@@ -876,39 +1015,53 @@ async function exportEvents() {
   background: var(--calendar-surface);
   color: var(--calendar-soft-text);
   cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 8px;
+  transition: background 0.12s ease;
+}
+
+.day-header-row button:hover {
+  background: var(--calendar-primary-bg);
 }
 
 .day-header-row button strong {
-  width: 42px;
-  height: 42px;
+  width: 38px;
+  height: 38px;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  margin: 7px auto;
   border-radius: 50%;
   color: var(--calendar-text);
-  font-size: 18px;
-}
-
-.day-header-row button small,
-.day-header-row button span {
-  display: block;
-}
-
-.day-header-row button.active {
-  color: var(--calendar-primary);
+  font-size: 16px;
   font-weight: 700;
 }
 
+.day-header-row button small {
+  font-size: 11px;
+  color: var(--calendar-muted);
+}
+
 .day-header-row button.active strong {
-  color: #fff;
   background: var(--calendar-primary);
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
+}
+
+.day-header-row button.active small {
+  color: var(--calendar-primary);
+  font-weight: 600;
 }
 
 .time-grid-view {
   display: grid;
   grid-template-columns: 72px repeat(7, minmax(132px, 1fr));
   min-height: 792px;
+  background: var(--calendar-border-soft);
+  gap: 1px;
 }
 
 .agenda-board.single .time-grid-view {
@@ -918,19 +1071,23 @@ async function exportEvents() {
 .time-axis {
   color: var(--calendar-muted);
   font-weight: 600;
+  background: var(--calendar-surface);
 }
 
 .time-axis span {
   height: 72px;
-  display: block;
+  display: flex;
+  align-items: flex-start;
   padding: 8px 10px;
-  border-right: 1px solid var(--calendar-border-soft);
+  font-size: 11px;
   border-bottom: 1px solid var(--calendar-border-soft);
+  letter-spacing: 0.02em;
 }
 
 .day-lane-view {
   position: relative;
   min-height: 792px;
+  background: var(--calendar-surface);
   border-right: 1px solid var(--calendar-border-soft);
 }
 
@@ -939,36 +1096,52 @@ async function exportEvents() {
   width: 100%;
   border: 0;
   border-bottom: 1px solid var(--calendar-border-soft);
-  background: #fff;
+  background: transparent;
   cursor: pointer;
+  transition: background 0.1s ease;
 }
 
-.time-slot:hover,
-.month-cell-view:hover {
-  background: #f8fbff;
+.time-slot:hover {
+  background: var(--calendar-primary-bg);
 }
 
 .timed-event {
   position: absolute;
-  left: 8px;
-  right: 8px;
-  display: grid;
-  align-content: start;
+  left: 6px;
+  right: 6px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
   gap: 2px;
-  padding: 8px 10px;
-  border: 1px solid var(--calendar-primary);
+  padding: 6px 10px;
+  border: 1px solid;
   border-left-width: 3px;
-  border-radius: 4px;
-  color: #15803d;
-  text-align: left;
+  border-radius: 8px;
   cursor: pointer;
   overflow: hidden;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.timed-event:hover {
+  opacity: 0.88;
+  transform: translateX(2px);
+}
+
+.timed-event strong {
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .timed-event small {
-  color: var(--calendar-soft-text);
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.7;
 }
 
+/* ===== Mobile ===== */
 .mobile-calendar {
   display: none;
 }
@@ -980,217 +1153,307 @@ async function exportEvents() {
 
   .calendar-app {
     overflow: auto;
-    background: #fff;
+    background: var(--calendar-bg);
   }
 
   .mobile-calendar {
     display: block;
     min-height: 100vh;
-    background: #fff;
+    background: var(--calendar-bg);
   }
 
   .mobile-topbar,
   .mobile-settings-header {
-    height: 88px;
+    height: 64px;
     display: grid;
-    grid-template-columns: 42px minmax(0, 1fr) auto;
+    grid-template-columns: 40px minmax(0, 1fr) auto;
     align-items: center;
-    gap: 12px;
-    padding: 26px 16px 10px;
-    background: #f7f8fa;
-    font-size: 24px;
+    gap: 10px;
+    padding: 0 16px;
+    background: var(--calendar-surface);
+    border-bottom: 1px solid var(--calendar-border);
+  }
+
+  .mobile-brand {
+    display: flex;
+    align-items: center;
+  }
+
+  .mobile-topbar strong {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
   }
 
   .mobile-settings-header {
-    grid-template-columns: 42px minmax(0, 1fr);
-    border-bottom: 1px solid #eef0f4;
+    grid-template-columns: 40px minmax(0, 1fr);
+    box-shadow: var(--calendar-shadow-sm);
   }
 
   .mobile-actions {
     display: flex;
     align-items: center;
-    gap: 10px;
+    gap: 4px;
   }
 
-  .mobile-icon-button {
+  .mobile-icon-btn {
     width: 36px;
     height: 36px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border: 0;
-    color: #000;
+    border-radius: 8px;
+    color: var(--calendar-text);
     background: transparent;
-    font-size: 28px;
+    font-size: 20px;
     cursor: pointer;
+    transition: background 0.15s ease;
   }
 
-  .mobile-admin-link {
-    height: 30px;
-    display: inline-flex;
-    align-items: center;
-    padding: 0 8px;
-    border: 1px solid #d6dbe4;
-    border-radius: 15px;
-    color: #1f2937;
-    background: #fff;
+  .mobile-icon-btn:hover {
+    background: var(--calendar-bg);
+  }
+
+  .today-dot {
     font-size: 12px;
     font-weight: 700;
-    white-space: nowrap;
+    color: var(--calendar-primary);
+  }
+
+  .mobile-week-nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: var(--calendar-surface);
+    border-bottom: 1px solid var(--calendar-border-soft);
+    font-size: 15px;
+    font-weight: 700;
+  }
+
+  .mobile-week-nav :deep(.el-button) {
+    color: var(--calendar-primary);
   }
 
   .mobile-month {
     display: grid;
     grid-template-columns: repeat(7, 1fr);
     gap: 0;
-    padding: 22px 12px 18px;
-    background: #f7f8fa;
-    border-bottom: 8px solid #f1f2f5;
+    padding: 16px 12px 14px;
+    background: var(--calendar-surface);
+    border-bottom: 8px solid var(--calendar-bg);
   }
 
   .mobile-weekdays {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: repeat(7, 1fr);
-    margin-bottom: 12px;
-    color: #8e949d;
+    margin-bottom: 8px;
+    color: var(--calendar-muted);
     text-align: center;
-    font-size: 14px;
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
   }
 
   .mobile-day {
     position: relative;
-    min-height: 74px;
+    min-height: 68px;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
     gap: 2px;
     border: 0;
-    color: #111;
+    color: var(--calendar-text);
     background: transparent;
     text-align: center;
     cursor: pointer;
+    border-radius: 10px;
+    transition: background 0.12s ease;
+  }
+
+  .mobile-day:hover {
+    background: var(--calendar-primary-bg);
   }
 
   .mobile-day strong {
-    width: 46px;
-    height: 46px;
+    width: 38px;
+    height: 38px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    font-size: 22px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
+    transition: all 0.15s ease;
   }
 
   .mobile-day span {
     display: block;
-    color: #7f8791;
-    font-size: 13px;
+    color: var(--calendar-muted);
+    font-size: 11px;
   }
 
   .mobile-day.muted strong,
   .mobile-day.muted span {
-    color: #8c929a;
+    color: var(--calendar-muted);
   }
 
   .mobile-day.active strong {
     color: #fff;
     background: var(--calendar-primary);
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.35);
   }
 
   .mobile-day.active span {
-    color: #fff;
-    transform: translateY(-2px);
+    color: var(--calendar-primary);
+    font-weight: 600;
   }
 
   .mobile-day i {
     position: absolute;
     left: 50%;
-    bottom: 8px;
+    bottom: 6px;
     width: 4px;
     height: 4px;
     border-radius: 50%;
-    background: #bfc5ce;
+    background: var(--calendar-primary);
     transform: translateX(-50%);
   }
 
+  /* Mobile Agenda */
   .mobile-agenda {
-    background: #fff;
+    background: var(--calendar-surface);
   }
 
   .mobile-agenda-title {
-    min-height: 70px;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
-    padding: 0 18px;
-    border-bottom: 1px solid #edf0f3;
-    font-size: 22px;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--calendar-border-soft);
   }
 
-  .mobile-agenda-title button {
-    border: 0;
-    color: var(--calendar-primary);
-    background: transparent;
-    font-size: 14px;
-    font-weight: 700;
+  .mobile-date-info {
+    display: flex;
+    align-items: baseline;
+    gap: 8px;
   }
 
-  .mobile-new-row,
-  .mobile-event-row {
-    width: 100%;
-    min-height: 70px;
-    display: grid;
-    align-items: center;
-    border: 0;
-    border-bottom: 1px solid #edf0f3;
-    background: #fff;
-    text-align: left;
-  }
-
-  .mobile-new-row {
-    padding: 0 18px;
-    color: #c7ccd3;
-    font-size: 20px;
-  }
-
-  .mobile-event-row {
-    grid-template-columns: 8px minmax(0, 1fr) auto;
-    gap: 12px;
-    padding: 0 18px;
-  }
-
-  .mobile-event-row i {
-    width: 4px;
-    height: 42px;
-    border-radius: 2px;
-  }
-
-  .mobile-event-row span {
+  .mobile-date-info strong {
     font-size: 18px;
     font-weight: 700;
   }
 
-  .mobile-event-row small {
-    color: #8e949d;
-    font-size: 14px;
+  .mobile-date-info span {
+    font-size: 13px;
+    color: var(--calendar-muted);
+    font-weight: 600;
   }
 
+  .mobile-agenda-title button {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    border: 0;
+    color: var(--calendar-primary);
+    background: transparent;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+
+  .mobile-new-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    width: 100%;
+    min-height: 52px;
+    border: 0;
+    border-bottom: 1px solid var(--calendar-border-soft);
+    color: var(--calendar-muted);
+    background: var(--calendar-surface);
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  .mobile-new-row:hover {
+    background: var(--calendar-primary-bg);
+    color: var(--calendar-primary);
+  }
+
+  .mobile-empty-day {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 80px;
+    color: var(--calendar-muted);
+    font-size: 14px;
+    font-weight: 600;
+    border-bottom: 1px solid var(--calendar-border-soft);
+  }
+
+  .mobile-event-row {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 4px 1fr auto;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 18px;
+    border: 0;
+    border-bottom: 1px solid var(--calendar-border-soft);
+    background: var(--calendar-surface);
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  .mobile-event-row:hover {
+    background: var(--calendar-bg);
+  }
+
+  .mobile-event-row i {
+    width: 4px;
+    height: 40px;
+    border-radius: 2px;
+  }
+
+  .mobile-event-title {
+    font-size: 15px;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .mobile-event-row small {
+    color: var(--calendar-muted);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  /* Mobile Settings */
   .mobile-settings {
     min-height: 100vh;
     padding-bottom: 28px;
-    background: #f4f5f7;
+    background: var(--calendar-bg);
   }
 
   .mobile-view-card,
   .mobile-add-calendar,
   .mobile-calendar-card {
     margin: 14px 16px;
-    border-radius: 8px;
-    background: #fff;
+    border-radius: var(--calendar-radius);
+    background: var(--calendar-surface);
+    box-shadow: var(--calendar-shadow-sm);
   }
 
   .mobile-view-card {
@@ -1214,52 +1477,60 @@ async function exportEvents() {
     min-width: 58px;
     padding: 5px 14px;
     border-radius: 18px;
+    font-size: 14px;
+    font-weight: 600;
+    transition: all 0.15s ease;
   }
 
   .mobile-view-card button.active strong {
     color: #fff;
     background: var(--calendar-primary);
+    box-shadow: 0 2px 6px rgba(59, 130, 246, 0.3);
   }
 
   .mode-art {
     width: 54px;
     height: 54px;
     border-radius: 12px;
-    border: 1px solid #e3e9f2;
+    border: 1px solid var(--calendar-border);
     background:
-      linear-gradient(#b8d7ff, #b8d7ff) 12px 14px / 30px 7px no-repeat,
-      repeating-linear-gradient(90deg, transparent 0 8px, #9fc2ed 8px 11px) 12px 26px / 32px 18px no-repeat,
-      #e9f3ff;
+      linear-gradient(var(--calendar-primary), var(--calendar-primary)) 12px 14px / 30px 7px no-repeat,
+      repeating-linear-gradient(90deg, transparent 0 8px, rgba(59,130,246,0.3) 8px 11px) 12px 26px / 32px 18px no-repeat,
+      var(--calendar-primary-bg);
   }
 
   .mode-art.three {
     background:
-      linear-gradient(#c1defd, #c1defd) 8px 10px / 9px 34px no-repeat,
-      linear-gradient(#d7e9ff, #d7e9ff) 22px 10px / 9px 34px no-repeat,
-      linear-gradient(#c1defd, #c1defd) 36px 10px / 9px 34px no-repeat,
-      #f3f8ff;
+      linear-gradient(var(--calendar-primary), var(--calendar-primary)) 8px 10px / 9px 34px no-repeat,
+      linear-gradient(var(--calendar-primary-light), var(--calendar-primary-light)) 22px 10px / 9px 34px no-repeat,
+      linear-gradient(var(--calendar-primary), var(--calendar-primary)) 36px 10px / 9px 34px no-repeat,
+      var(--calendar-primary-bg);
   }
 
   .mode-art.week {
     background:
-      linear-gradient(#b8d7ff, #b8d7ff) 12px 13px / 30px 8px no-repeat,
-      linear-gradient(#d7e9ff, #d7e9ff) 12px 27px / 30px 7px no-repeat,
-      linear-gradient(#d7e9ff, #d7e9ff) 12px 39px / 30px 7px no-repeat,
-      #e9f3ff;
+      linear-gradient(var(--calendar-primary), var(--calendar-primary)) 12px 13px / 30px 8px no-repeat,
+      linear-gradient(var(--calendar-primary-light), var(--calendar-primary-light)) 12px 27px / 30px 7px no-repeat,
+      linear-gradient(var(--calendar-primary-light), var(--calendar-primary-light)) 12px 39px / 30px 7px no-repeat,
+      var(--calendar-primary-bg);
   }
 
   .mobile-add-calendar {
-    width: calc(100% - 32px);
-    min-height: 72px;
     display: flex;
     align-items: center;
     gap: 14px;
     padding: 0 20px;
+    min-height: 56px;
     border: 0;
-    color: #1764b9;
-    font-size: 20px;
+    color: var(--calendar-primary);
+    font-size: 15px;
     font-weight: 700;
-    text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease;
+  }
+
+  .mobile-add-calendar:hover {
+    background: var(--calendar-primary-bg);
   }
 
   .mobile-add-calendar span {
@@ -1268,9 +1539,9 @@ async function exportEvents() {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    border: 2px solid #1764b9;
+    border: 2px solid var(--calendar-primary);
     border-radius: 50%;
-    font-size: 24px;
+    font-size: 22px;
     line-height: 1;
   }
 
@@ -1279,51 +1550,48 @@ async function exportEvents() {
   }
 
   .mobile-calendar-card p {
-    margin: 0 0 16px;
-    color: #8e949d;
-    font-size: 18px;
+    margin: 0 0 14px;
+    color: var(--calendar-muted);
+    font-size: 12px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
   }
 
   .mobile-calendar-line {
-    min-height: 64px;
     display: grid;
-    grid-template-columns: 34px minmax(0, 1fr) 24px;
+    grid-template-columns: 28px 1fr 20px;
     align-items: center;
-    gap: 14px;
-    border-bottom: 1px solid #edf0f3;
+    gap: 12px;
+    min-height: 56px;
+    border-bottom: 1px solid var(--calendar-border-soft);
   }
 
   .mobile-calendar-line:last-child {
     border-bottom: 0;
   }
 
-  .mobile-calendar-line i {
-    width: 24px;
-    height: 24px;
-    border-radius: 50%;
-    background: var(--calendar-primary);
-    position: relative;
+  .mobile-calendar-line > :last-child {
+    color: var(--calendar-muted);
   }
 
-  .mobile-calendar-line i::after {
-    content: "";
-    position: absolute;
-    left: 8px;
-    top: 4px;
-    width: 6px;
-    height: 12px;
-    border: solid #fff;
-    border-width: 0 2px 2px 0;
-    transform: rotate(45deg);
+  .mobile-calendar-line i {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
   }
 
   .mobile-calendar-line strong {
-    font-size: 20px;
+    font-size: 15px;
+    font-weight: 700;
   }
 
-  .mobile-calendar-line small,
-  .mobile-calendar-line > span {
-    color: #9aa1aa;
+  .mobile-calendar-line small {
+    display: block;
+    margin-top: 2px;
+    color: var(--calendar-muted);
+    font-size: 12px;
+    font-weight: 600;
   }
 
   .mobile-sheet-mask {
@@ -1332,70 +1600,70 @@ async function exportEvents() {
     z-index: 20;
     display: flex;
     align-items: flex-end;
-    background: rgba(0, 0, 0, 0.62);
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
   }
 
   .mobile-add-sheet {
     width: 100%;
     padding: 26px 18px 30px;
     border-radius: 16px 16px 0 0;
-    background: #f5f6f8;
+    background: var(--calendar-surface);
   }
 
   .mobile-add-sheet h2 {
     margin: 0 0 24px;
     text-align: center;
-    font-size: 24px;
+    font-size: 18px;
+    font-weight: 700;
   }
 
   .mobile-add-sheet button {
     width: 100%;
-    min-height: 96px;
+    min-height: 80px;
     display: grid;
-    grid-template-columns: minmax(0, 1fr) 46px;
+    grid-template-columns: 48px 1fr;
     align-items: center;
-    gap: 16px;
-    margin-top: 14px;
-    padding: 18px 20px;
+    gap: 14px;
+    margin-top: 12px;
+    padding: 16px 18px;
     border: 0;
-    border-radius: 8px;
-    background: #fff;
+    border-radius: var(--calendar-control-radius);
+    background: var(--calendar-bg);
     text-align: left;
+    cursor: pointer;
+    transition: background 0.12s ease;
   }
 
-  .mobile-add-sheet button .sheet-icon {
-    grid-column: 2;
-    grid-row: 1;
-  }
-
-  .mobile-add-sheet button div {
-    grid-column: 1;
-    grid-row: 1;
+  .mobile-add-sheet button:hover {
+    background: var(--calendar-primary-bg);
   }
 
   .mobile-add-sheet strong {
     display: block;
-    font-size: 22px;
+    font-size: 16px;
+    font-weight: 700;
   }
 
   .mobile-add-sheet small {
     display: block;
-    margin-top: 8px;
-    color: #8e949d;
-    font-size: 16px;
+    margin-top: 4px;
+    color: var(--calendar-muted);
+    font-size: 13px;
+    font-weight: 500;
     line-height: 1.4;
   }
 
   .sheet-icon {
-    width: 38px;
-    height: 38px;
+    width: 40px;
+    height: 40px;
     border-radius: 50%;
     background: var(--calendar-primary);
   }
 
   .sheet-icon.public {
-    border-radius: 8px;
-    background: #22c55e;
+    border-radius: 10px;
+    background: var(--calendar-success);
   }
 }
 </style>
