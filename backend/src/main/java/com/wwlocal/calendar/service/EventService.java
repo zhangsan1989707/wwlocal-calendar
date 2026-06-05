@@ -343,9 +343,13 @@ public class EventService {
 
     var current = start;
     var countGenerated = 0;
-    var maxIterations = 1000; // 安全上限
+    var totalIterations = 0;
+    var maxIterations = 10000; // 安全上限（总迭代次数）
 
-    while (countGenerated < maxCount && countGenerated < maxIterations) {
+    while (totalIterations < maxIterations) {
+      if (countGenerated >= maxCount) {
+        break;
+      }
       if (current.toLocalDate().isAfter(expandEnd.toLocalDate().plusDays(1))) {
         break;
       }
@@ -355,11 +359,12 @@ public class EventService {
 
       if (current.isAfter(expandStart.minusSeconds(1)) || current.isEqual(expandStart)) {
         instances.add(current);
+        countGenerated++;
       }
-      countGenerated++;
 
       // 计算下一个实例
       current = nextInstance(current, freq, interval, byDays, byDayNums, start);
+      totalIterations++;
     }
 
     return instances;
