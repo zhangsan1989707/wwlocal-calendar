@@ -67,6 +67,33 @@ public class EventController {
         return ApiResponse.ok(events.freebusy(payload));
     }
 
+    @GetMapping("/events/{id}/attachments")
+    public ApiResponse<List<Map<String, Object>>> getEventAttachments(@PathVariable long id) {
+        return ApiResponse.ok(events.getEventAttachments(id));
+    }
+
+    @GetMapping("/events/{id}/participants")
+    public ApiResponse<List<Map<String, Object>>> getEventParticipants(@PathVariable long id) {
+        return ApiResponse.ok(events.getEventParticipants(id));
+    }
+
+    @GetMapping("/events/{id}/reminders")
+    public ApiResponse<List<Map<String, Object>>> getEventReminders(@PathVariable long id) {
+        return ApiResponse.ok(events.getEventReminders(id));
+    }
+
+    @GetMapping("/events/{id}/todos")
+    public ApiResponse<List<Map<String, Object>>> getEventTodos(@PathVariable long id) {
+        return ApiResponse.ok(events.getEventTodos(id));
+    }
+
+    @PutMapping("/todos/{todoId}")
+    public ApiResponse<Map<String, Object>> toggleTodo(@PathVariable long todoId, @RequestBody Map<String, Object> payload) {
+        boolean completed = Boolean.TRUE.equals(payload.get("completed"));
+        Long operatorUserId = payload.get("operatorUserId") != null ? ((Number) payload.get("operatorUserId")).longValue() : null;
+        return ApiResponse.ok(events.toggleTodo(todoId, completed, operatorUserId));
+    }
+
     @PostMapping("/export/events")
     public void exportEvents(@RequestBody Map<String, Object> payload, HttpServletResponse response) throws IOException {
         Long operatorUserId = payload.get("operatorUserId") != null 

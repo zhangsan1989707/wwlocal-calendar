@@ -92,11 +92,12 @@ public class EventService {
       args.add(params.get("status"));
     }
 
-    // Keyword search on title, location, description
+    // Keyword search on title, location, description, or participant names
     var keyword = params.get("keyword");
     if (keyword != null && !keyword.isBlank()) {
-      clauses.add("(e.title ILIKE ? OR e.location ILIKE ? OR e.description ILIKE ?)");
       var pattern = "%" + keyword + "%";
+      clauses.add("(e.title ILIKE ? OR e.location ILIKE ? OR e.description ILIKE ? OR EXISTS (SELECT 1 FROM event_participant ep LEFT JOIN users u ON ep.user_id = u.id WHERE ep.event_id = e.id AND u.name ILIKE ?))");
+      args.add(pattern);
       args.add(pattern);
       args.add(pattern);
       args.add(pattern);
@@ -142,7 +143,7 @@ public class EventService {
       sql.append(" WHERE ").append(String.join(" AND ", clauses));
     }
 
-    sql.append(" ORDER BY e.start_at");
+    sql.append(" ORDER BY e.start_at LIMIT 500");
     return jdbc.queryForList(sql.toString(), args.toArray());
   }
 
@@ -157,6 +158,19 @@ public class EventService {
     Map<String, Object> event;
     if (payload.containsKey("id") && payload.get("id") != null) {
       long id = ((Number) payload.get("id")).longValue();
+      
+      // 检查权限：只有发起人可以编辑
+      var operatorUserId = payload.get("operatorUserId");
+      if (operatorUserId != null) {
+        var existingEvent = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+        if (!existingEvent.isEmpty()) {
+          var organizerId = existingEvent.get(0).get("organizer_user_id");
+          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
+            throw new SecurityException("只有发起人可以编辑此日程");
+          }
+        }
+      }
+      
       event = crud.update("event", COLUMNS, id, payload);
     } else {
       event = crud.create("event", COLUMNS, payload);
@@ -277,6 +291,18 @@ public class EventService {
     if (!"single".equals(scope)) {
       throw new UnsupportedOperationException("series delete not implemented");
     }
+    
+    // 检查权限：只有发起人可以删除
+    if (operatorUserId != null) {
+      var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+      if (!event.isEmpty()) {
+        var organizerId = event.get(0).get("organizer_user_id");
+        if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
+          throw new SecurityException("只有发起人可以删除此日程");
+        }
+      }
+    }
+    
     jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
     if (operatorUserId != null) {
       audit.record(operatorUserId, "event", "cancel", "event", id, "单次取消事件");
@@ -434,5 +460,29 @@ public class EventService {
         """, "日程全量导出", "MANAGEMENT", "FINISHED", userId, filePath.toString(), now, now);
 
     return filePath;
+  }
+
+  public List<Map<String, Object>> getEventAttachments(long eventId) {
+    return jdbc.queryForList("SELECT * FROM event_attachment WHERE event_id = ?", eventId);
+  }
+
+  public List<Map<String, Object>> getEventParticipants(long eventId) {
+    return jdbc.queryForList("SELECT ep.*, u.name FROM event_participant ep LEFT JOIN users u ON ep.user_id = u.id WHERE ep.event_id = ?", eventId);
+  }
+
+  public List<Map<String, Object>> getEventReminders(long eventId) {
+    return jdbc.queryForList("SELECT * FROM event_reminder WHERE event_id = ?", eventId);
+  }
+
+  public List<Map<String, Object>> getEventTodos(long eventId) {
+    return jdbc.queryForList("SELECT * FROM event_todo WHERE event_id = ?", eventId);
+  }
+
+  public Map<String, Object> toggleTodo(long todoId, boolean completed, Long operatorUserId) {
+    jdbc.update("UPDATE event_todo SET completed = ?, updated_at = now() WHERE id = ?", completed, todoId);
+    if (operatorUserId != null) {
+      audit.record(operatorUserId, "todo", completed ? "complete" : "reopen", "event_todo", todoId, completed ? "待办已完成" : "待办已重新打开");
+    }
+    return jdbc.queryForMap("SELECT * FROM event_todo WHERE id = ?", todoId);
   }
 }

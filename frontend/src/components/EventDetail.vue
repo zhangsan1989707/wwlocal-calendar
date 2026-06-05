@@ -57,9 +57,62 @@
               <p class="meta-description">{{ event.description }}</p>
             </div>
           </div>
+          
+          <div v-if="attachments.length" class="meta-row">
+            <div class="meta-icon">
+              <el-icon><Download /></el-icon>
+            </div>
+            <div class="meta-content">
+              <span class="meta-label">附件</span>
+              <div class="attachments-list">
+                <div
+                  v-for="attachment in attachments"
+                  :key="attachment.id"
+                  class="attachment-item"
+                  @click="downloadAttachment(attachment)"
+                >
+                  <span class="attachment-name">{{ attachment.file_name }}</span>
+                  <span class="attachment-size">{{ formatFileSize(attachment.file_size) }}</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div v-if="participants.length" class="meta-row">
+            <div class="meta-icon">
+              <el-icon><Tickets /></el-icon>
+            </div>
+            <div class="meta-content">
+              <span class="meta-label">参与人</span>
+              <div class="participants-list">
+                <div v-for="participant in participants" :key="participant.id" class="participant-item">
+                  <span class="participant-name">{{ participant.name || participant.user_id || '部门成员' }}</span>
+                  <el-tag :type="getResponseStatusType(participant.response_status)" size="small">
+                    {{ getResponseStatusLabel(participant.response_status) }}
+                  </el-tag>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <div v-if="todos.length" class="meta-row">
+            <div class="meta-icon">
+              <el-icon><Document /></el-icon>
+            </div>
+            <div class="meta-content">
+              <span class="meta-label">待办事项</span>
+              <div class="todos-list">
+                <div v-for="todo in todos" :key="todo.id" class="todo-item" @click="toggleTodo(todo)">
+                  <el-checkbox :model-value="todo.completed" />
+                  <span class="todo-title" :class="{ 'todo-completed': todo.completed }">{{ todo.title }}</span>
+                  <el-tag :type="getPriorityType(todo.priority)" size="small">{{ getPriorityLabel(todo.priority) }}</el-tag>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div class="action-row">
+        <div v-if="isOrganizer" class="action-row">
           <el-button type="primary" @click="$emit('edit', event)">
             <el-icon><Edit /></el-icon>
             编辑日程
@@ -75,7 +128,7 @@
           </div>
         </div>
 
-        <div class="danger-zone">
+        <div v-if="isOrganizer" class="danger-zone">
           <el-button type="danger" plain @click="$emit('remove', event)">
             <el-icon><Delete /></el-icon>
             删除日程
@@ -87,11 +140,29 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { Calendar, Close, Delete, Document, Edit, Location, Tickets } from '@element-plus/icons-vue'
+import { Calendar, Close, Delete, Document, Edit, Location, Tickets, Download } from '@element-plus/icons-vue'
 import { api } from '../api/http'
 import type { EventItem } from '../api/types'
+
+interface Attachment {
+  id: number
+  file_name: string
+  file_path: string
+  file_size: number
+  content_type: string
+  created_at: string
+}
+
+interface Participant {
+  id: number
+  event_id: number
+  user_id: string | null
+  department_id: string | null
+  response_status: string
+  name?: string
+}
 
 const props = defineProps<{
   modelValue: boolean
@@ -109,6 +180,102 @@ const visible = computed({
   get: () => props.modelValue,
   set: (value) => emit('update:modelValue', value)
 })
+
+const isOrganizer = computed(() => {
+  return props.event && String(props.event.organizer_user_id) === String(props.currentUserId)
+})
+
+const attachments = ref<Attachment[]>([])
+const participants = ref<Participant[]>([])
+const todos = ref<any[]>([])
+
+watch(() => props.modelValue, async (isVisible) => {
+  if (isVisible && props.event?.id) {
+    try {
+      attachments.value = await api.get(`/events/${props.event.id}/attachments`)
+    } catch {
+      attachments.value = []
+    }
+    
+    try {
+      participants.value = await api.get(`/events/${props.event.id}/participants`)
+    } catch {
+      participants.value = []
+    }
+    
+    try {
+      todos.value = await api.get(`/events/${props.event.id}/todos`)
+    } catch {
+      todos.value = []
+    }
+  } else {
+    attachments.value = []
+    participants.value = []
+    todos.value = []
+  }
+})
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+function downloadAttachment(attachment: Attachment) {
+  window.open(`/api/files/${attachment.id}/download`, '_blank')
+}
+
+function getResponseStatusLabel(status: string): string {
+  const statusMap: Record<string, string> = {
+    'ACCEPTED': '已接受',
+    'DECLINED': '已拒绝',
+    'TENTATIVE': '待定',
+    'NEEDS_ACTION': '待确认'
+  }
+  return statusMap[status] || status
+}
+
+function getResponseStatusType(status: string): string {
+  const typeMap: Record<string, string> = {
+    'ACCEPTED': 'success',
+    'DECLINED': 'danger',
+    'TENTATIVE': 'warning',
+    'NEEDS_ACTION': 'info'
+  }
+  return typeMap[status] || 'info'
+}
+
+function getPriorityLabel(priority: string): string {
+  const labelMap: Record<string, string> = {
+    'LOW': '低',
+    'MEDIUM': '中',
+    'HIGH': '高'
+  }
+  return labelMap[priority] || '中'
+}
+
+function getPriorityType(priority: string): string {
+  const typeMap: Record<string, string> = {
+    'LOW': 'info',
+    'MEDIUM': 'warning',
+    'HIGH': 'danger'
+  }
+  return typeMap[priority] || 'info'
+}
+
+async function toggleTodo(todo: any) {
+  try {
+    await api.put(`/todos/${todo.id}`, {
+      completed: !todo.completed,
+      operatorUserId: props.currentUserId
+    })
+    // 更新本地状态
+    todo.completed = !todo.completed
+    ElMessage.success(todo.completed ? '待办已完成' : '待办已重新打开')
+  } catch (err) {
+    ElMessage.error('更新待办失败')
+  }
+}
 
 function format(value?: string) {
   return value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : ''
@@ -261,6 +428,92 @@ async function respond(status: string) {
   color: var(--calendar-soft-text);
   line-height: 1.6;
   white-space: pre-wrap;
+}
+
+.attachments-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.attachment-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 4px;
+  background: var(--calendar-bg);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.attachment-item:hover {
+  background: var(--calendar-primary-bg);
+}
+
+.attachment-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  font-size: 12px;
+  color: var(--calendar-muted);
+}
+
+.participants-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.participant-item {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 4px;
+  background: var(--calendar-bg);
+}
+
+.participant-name {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.todos-list {
+  display: grid;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.todo-item {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 4px;
+  background: var(--calendar-bg);
+  cursor: pointer;
+}
+
+.todo-title {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.todo-completed {
+  text-decoration: line-through;
+  color: var(--calendar-muted);
 }
 
 .calendar-dot {

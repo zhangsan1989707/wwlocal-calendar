@@ -376,45 +376,11 @@ const mobileSettingsVisible = ref(false)
 const mobileCalendarSheetVisible = ref(false)
 const mobileViewMode = ref<'day' | 'three' | 'week'>('day')
 
-const localCalendars: CalendarItem[] = [
-  { id: 'local-1', name: '李宇航的日历', type: 'PERSONAL', color: '#3b82f6', visible: true, status: 'ACTIVE' },
-  { id: 'local-2', name: '产品发布日历', type: 'SHARED', color: '#f59e0b', visible: true, status: 'ACTIVE' },
-  { id: 'local-3', name: '部门协作日历', type: 'SHARED', color: '#ef4444', visible: true, status: 'ACTIVE' },
-  { id: 'local-4', name: '项目日程', type: 'SHARED', color: '#10b981', visible: true, status: 'ACTIVE' }
-]
-
-const localEvents: EventItem[] = [
-  {
-    id: 'local-1',
-    calendar_id: 'local-2',
-    organizer_user_id: 'user-001',
-    title: '版本发布评审',
-    start_at: new Date(2026, 5, 5, 11, 30).toISOString(),
-    end_at: new Date(2026, 5, 5, 12, 30).toISOString(),
-    all_day: false,
-    calendar_name: '产品发布日历',
-    calendar_color: '#3b82f6',
-    status: 'ACTIVE'
-  },
-  {
-    id: 'local-2',
-    calendar_id: 'local-4',
-    organizer_user_id: 'user-001',
-    title: '端午节',
-    start_at: new Date(2026, 5, 19, 9, 0).toISOString(),
-    end_at: new Date(2026, 5, 19, 18, 0).toISOString(),
-    all_day: true,
-    calendar_name: '项目日程',
-    calendar_color: '#10b981',
-    status: 'ACTIVE'
-  }
-]
-
-const displayCalendars = computed(() => (store.calendars.length ? store.calendars : localCalendars))
+const displayCalendars = computed(() => store.calendars)
 const formCalendars = computed(() => displayCalendars.value)
 const personalCalendars = computed(() => displayCalendars.value.filter((item) => item.type === 'PERSONAL'))
 const sharedCalendars = computed(() => displayCalendars.value.filter((item) => item.type !== 'PERSONAL'))
-const displayEvents = computed(() => (store.events.length ? store.events : localEvents))
+const displayEvents = computed(() => store.events)
 const filteredEvents = computed(() => displayEvents.value.filter((event) => visibleCalendarIds.value.map(String).includes(String(event.calendar_id))))
 const monthTitle = computed(() => `${selectedDate.value.getFullYear()}年${selectedDate.value.getMonth() + 1}月`)
 const stageTitle = computed(() => {

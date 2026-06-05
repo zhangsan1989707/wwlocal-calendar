@@ -36,10 +36,56 @@
             <el-input v-model="form.location" maxlength="300" placeholder="请输入地点" />
           </el-form-item>
           <el-form-item label="附件">
-            <el-button class="attach-button">添加附件</el-button>
+            <div class="attachments-section">
+              <input
+                ref="fileInputRef"
+                type="file"
+                style="display: none"
+                @change="handleFileSelect"
+              />
+              <el-button class="attach-button" @click="fileInputRef?.click()">
+                <el-icon><Upload /></el-icon>
+                添加附件
+              </el-button>
+              <div v-if="attachments.length" class="attachments-list">
+                <div v-for="attachment in attachments" :key="attachment.id" class="attachment-item">
+                  <span class="attachment-name">{{ attachment.file_name }}</span>
+                  <span class="attachment-size">{{ formatFileSize(attachment.file_size) }}</span>
+                  <el-button
+                    type="danger"
+                    :icon="Delete"
+                    circle
+                    size="small"
+                    @click="deleteAttachment(attachment)"
+                  />
+                </div>
+              </div>
+            </div>
           </el-form-item>
           <el-form-item label="描述">
-            <el-input v-model="form.description" type="textarea" maxlength="2000" :rows="5" placeholder="请输入描述" />
+            <el-input v-model="form.description" type="textarea" maxlength="2000" :rows="3" placeholder="请输入描述" />
+          </el-form-item>
+          
+          <el-form-item label="待办">
+            <div class="todos-section">
+              <div v-for="(todo, index) in todos" :key="index" class="todo-item">
+                <el-input 
+                  v-model="todo.title" 
+                  class="todo-title" 
+                  placeholder="待办事项标题"
+                  size="small"
+                />
+                <el-select v-model="todo.priority" class="todo-priority" size="small">
+                  <el-option label="低" value="LOW" />
+                  <el-option label="中" value="MEDIUM" />
+                  <el-option label="高" value="HIGH" />
+                </el-select>
+                <el-button type="danger" :icon="Delete" size="small" circle @click="removeTodo(index)" />
+              </div>
+              <el-button type="primary" size="small" plain @click="addTodo">
+                + 添加待办
+              </el-button>
+            </div>
           </el-form-item>
           <el-form-item label="日历" required>
             <el-select v-model="form.calendar_id" filterable>
@@ -111,9 +157,18 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
-import { ArrowLeft, ArrowRight } from '@element-plus/icons-vue'
-import { api } from '../api/http'
+import { ArrowLeft, ArrowRight, Upload, Delete } from '@element-plus/icons-vue'
+import { api, uploadFile } from '../api/http'
 import type { CalendarItem, EventItem, CalendarTag, User } from '../api/types'
+
+interface Attachment {
+  id: number
+  file_name: string
+  file_path: string
+  file_size: number
+  content_type: string
+  created_at: string
+}
 
 const props = defineProps<{
   modelValue: boolean
@@ -139,6 +194,8 @@ const visible = computed({
 const form = reactive<Record<string, any>>({})
 const participantIds = ref<string[]>([])
 const todos = ref<Array<{ title: string; assigneeUserId?: string; priority: string; completed: boolean }>>([])
+const attachments = ref<Attachment[]>([])
+const fileInputRef = ref<HTMLInputElement | null>(null)
 const startDate = ref(new Date())
 const endDate = ref(new Date())
 const startTime = ref('11:30')
@@ -225,7 +282,7 @@ watch(startDate, () => {
 
 watch(
   () => props.modelValue,
-  () => {
+  async () => {
     const firstCalendar = props.calendars[0]
     Object.assign(form, {
       id: props.event?.id,
@@ -249,8 +306,122 @@ watch(
     endTime.value = formatTime(end)
     participantIds.value = []
     todos.value = []
+    attachments.value = []
+    
+    // 如果是编辑模式，加载附件和参与人
+    if (props.event?.id) {
+      try {
+        attachments.value = await api.get(`/events/${props.event.id}/attachments`)
+      } catch {
+        // 忽略错误
+      }
+      
+      try {
+        const participants = await api.get(`/events/${props.event.id}/participants`)
+        participantIds.value = participants
+          .filter((p: any) => p.user_id)
+          .map((p: any) => String(p.user_id))
+      } catch {
+        // 忽略错误
+      }
+      
+      // 加载提醒
+      try {
+        const reminders = await api.get(`/events/${props.event.id}/reminders`)
+        if (reminders.length > 0) {
+          const reminder = reminders[0]
+          const minutes = reminder.minutes_before
+          // 根据分钟数设置对应的标签
+          if (minutes === 0) {
+            reminderLabel.value = '即时'
+          } else if (minutes === 5) {
+            reminderLabel.value = '5分钟前'
+          } else if (minutes === 15) {
+            reminderLabel.value = '15分钟前'
+          } else if (minutes === 30) {
+            reminderLabel.value = '30分钟前'
+          } else if (minutes === 60) {
+            reminderLabel.value = '1小时前'
+          } else if (minutes === 1440) {
+            reminderLabel.value = '1天前'
+          } else {
+            reminderLabel.value = '不提醒' // 自定义暂时不支持，先设为不提醒
+          }
+        }
+      } catch {
+        // 忽略错误
+      }
+      
+      // 加载待办事项
+      try {
+        const eventTodos = await api.get(`/events/${props.event.id}/todos`)
+        todos.value = eventTodos.map((todo: any) => ({
+          title: todo.title || '',
+          assigneeUserId: todo.assignee_user_id || undefined,
+          priority: todo.priority || 'MEDIUM',
+          completed: todo.completed || false
+        }))
+      } catch {
+        // 忽略错误
+      }
+    }
   }
 )
+
+async function handleFileSelect(event: Event) {
+  const target = event.target as HTMLInputElement
+  const files = target.files
+  if (!files || !files.length) return
+  
+  const file = files[0]
+  try {
+    const formData = new FormData()
+    formData.append('file', file)
+    if (form.id) {
+      formData.append('eventId', String(form.id))
+    }
+    formData.append('userId', props.currentUserId)
+    
+    const result = await uploadFile('/files/upload', formData)
+    attachments.value.push(result)
+    ElMessage.success('附件上传成功')
+  } catch {
+    ElMessage.error('附件上传失败')
+  } finally {
+    // 清空文件输入，以便可以再次选择相同的文件
+    if (target) {
+      target.value = ''
+    }
+  }
+}
+
+async function deleteAttachment(attachment: Attachment) {
+  try {
+    await api.post(`/attachments/${attachment.id}/delete`, { operatorUserId: props.currentUserId })
+    attachments.value = attachments.value.filter(a => a.id !== attachment.id)
+    ElMessage.success('附件已删除')
+  } catch {
+    ElMessage.error('删除附件失败')
+  }
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + ' B'
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB'
+  return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
+}
+
+function addTodo() {
+  todos.value.push({
+    title: '',
+    priority: 'MEDIUM',
+    completed: false
+  })
+}
+
+function removeTodo(index: number) {
+  todos.value.splice(index, 1)
+}
 
 // Sync end time when duration changes
 watch(durationLabel, (label) => {
@@ -383,6 +554,56 @@ function formatTime(date: Date) {
 
 .attach-button {
   width: 116px;
+}
+
+.attachments-section {
+  width: 100%;
+}
+
+.attachments-list {
+  margin-top: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.attachment-item {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  border: 1px solid var(--calendar-border);
+  border-radius: 4px;
+  background: var(--calendar-bg);
+}
+
+.attachment-name {
+  font-size: 13px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.attachment-size {
+  font-size: 12px;
+  color: var(--calendar-muted);
+}
+
+.todos-section {
+  width: 100%;
+}
+
+.todo-item {
+  display: grid;
+  grid-template-columns: 1fr 100px auto;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 8px;
+}
+
+.todo-title {
+  flex: 1;
 }
 
 .tag-dot {
