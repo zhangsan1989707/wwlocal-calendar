@@ -409,8 +409,13 @@ public class EventService {
         var targetDow = byDays.get(0);
         var targetNum = byDayNums.get(0);
         if (targetNum > 0) {
-          nextMonth = nextMonth.withDayOfMonth(1)
-              .with(TemporalAdjusters.dayOfWeekInMonth(targetNum, targetDow));
+          try {
+            nextMonth = nextMonth.withDayOfMonth(1)
+                .with(TemporalAdjusters.dayOfWeekInMonth(targetNum, targetDow));
+          } catch (java.time.DateTimeException e) {
+            // 该月不存在第 targetNum 个 targetDow，跳到下个月
+            return nextMonth.withDayOfMonth(1).plusMonths(1);
+          }
         } else {
           // 负数表示倒数第N个
           nextMonth = nextMonth.withDayOfMonth(nextMonth.toLocalDate()
