@@ -403,21 +403,25 @@ public class EventService {
     }
 
     if ("MONTHLY".equals(freq)) {
-      if (!byDayNums.isEmpty() && byDayNums.get(0) != 0) {
-        // 第N个星期几
-        var nextMonth = current.plusMonths(interval);
+      if (!byDays.isEmpty() && !byDayNums.isEmpty()) {
         var targetDow = byDays.get(0);
         var targetNum = byDayNums.get(0);
+        if (targetNum == 0) {
+          // 无数字前缀的 BYDAY（如 BYDAY=MO）：默认取该月第一个该星期几
+          targetNum = 1;
+        }
         if (targetNum > 0) {
+          var nextMonth = current.plusMonths(interval);
           nextMonth = nextMonth.withDayOfMonth(1)
               .with(TemporalAdjusters.dayOfWeekInMonth(targetNum, targetDow));
+          return nextMonth;
         } else {
           // 负数表示倒数第N个
-          nextMonth = nextMonth.withDayOfMonth(nextMonth.toLocalDate()
-              .lengthOfMonth())
+          var nextMonth = current.plusMonths(interval);
+          nextMonth = nextMonth.withDayOfMonth(nextMonth.toLocalDate().lengthOfMonth())
               .with(TemporalAdjusters.lastInMonth(targetDow));
+          return nextMonth;
         }
-        return nextMonth;
       } else {
         // 按日期（每月同一天）
         return current.plusMonths(interval);
@@ -481,15 +485,16 @@ public class EventService {
     if (payload.containsKey("id") && payload.get("id") != null) {
       long id = ((Number) payload.get("id")).longValue();
       
-      // 检查权限：只有发起人可以编辑
+      // 检查权限：只有发起人可以编辑。operatorUserId 为必填项，缺失时拒绝操作。
       var operatorUserId = payload.get("operatorUserId");
-      if (operatorUserId != null) {
-        var existingEvent = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
-        if (!existingEvent.isEmpty()) {
-          var organizerId = existingEvent.get(0).get("organizer_user_id");
-          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-            throw new SecurityException("只有发起人可以编辑此日程");
-          }
+      if (operatorUserId == null) {
+        throw new SecurityException("缺少操作者身份信息，无法验证权限");
+      }
+      var existingEvent = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+      if (!existingEvent.isEmpty()) {
+        var organizerId = existingEvent.get(0).get("organizer_user_id");
+        if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
+          throw new SecurityException("只有发起人可以编辑此日程");
         }
       }
       
@@ -499,10 +504,17 @@ public class EventService {
     }
     long eventId = ((Number) event.get("id")).longValue();
 
-    // Cascading: replace reminders, participants, todos and recurrence from payload
-    replaceReminders(eventId, payload);
-    replaceParticipants(eventId, payload);
-    replaceTodos(eventId, payload);
+    // Cascading: only replace sub-resources when the field is explicitly present in the payload
+    // to avoid silent data loss on partial updates
+    if (payload.containsKey("reminders")) {
+      replaceReminders(eventId, payload);
+    }
+    if (payload.containsKey("participantIds")) {
+      replaceParticipants(eventId, payload);
+    }
+    if (payload.containsKey("todos")) {
+      replaceTodos(eventId, payload);
+    }
     replaceRecurrence(eventId, payload);
 
     return event;
@@ -612,30 +624,10 @@ public class EventService {
    */
   public void remove(long id, String operatorUserId, String scope) {
     if ("series".equals(scope)) {
-      // 删除整个重复系列：取消主事件
-      if (operatorUserId != null) {
-        var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
-        if (!event.isEmpty()) {
-          var organizerId = event.get(0).get("organizer_user_id");
-          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-            throw new SecurityException("只有发起人可以删除此日程");
-          }
-        }
+      // 删除整个重复系列：取消主事件。operatorUserId 为必填项，缺失时拒绝操作。
+      if (operatorUserId == null) {
+        throw new SecurityException("缺少操作者身份信息，无法验证权限");
       }
-      jdbc.update("DELETE FROM event_recurrence WHERE event_id = ?", id);
-      jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
-      if (operatorUserId != null) {
-        audit.record(operatorUserId, "event", "cancel_series", "event", id, "整个重复系列已取消");
-      }
-      return;
-    }
-
-    if (!"single".equals(scope)) {
-      throw new UnsupportedOperationException("series delete not implemented");
-    }
-    
-    // 检查权限：只有发起人可以删除
-    if (operatorUserId != null) {
       var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
       if (!event.isEmpty()) {
         var organizerId = event.get(0).get("organizer_user_id");
@@ -643,12 +635,30 @@ public class EventService {
           throw new SecurityException("只有发起人可以删除此日程");
         }
       }
+      jdbc.update("DELETE FROM event_recurrence WHERE event_id = ?", id);
+      jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
+      audit.record(operatorUserId, "event", "cancel_series", "event", id, "整个重复系列已取消");
+      return;
+    }
+
+    if (!"single".equals(scope)) {
+      throw new UnsupportedOperationException("不支持的删除范围: " + scope);
+    }
+    
+    // 检查权限：只有发起人可以删除。operatorUserId 为必填项，缺失时拒绝操作。
+    if (operatorUserId == null) {
+      throw new SecurityException("缺少操作者身份信息，无法验证权限");
+    }
+    var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+    if (!event.isEmpty()) {
+      var organizerId = event.get(0).get("organizer_user_id");
+      if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
+        throw new SecurityException("只有发起人可以删除此日程");
+      }
     }
     
     jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
-    if (operatorUserId != null) {
-      audit.record(operatorUserId, "event", "cancel", "event", id, "单次取消事件");
-    }
+    audit.record(operatorUserId, "event", "cancel", "event", id, "单次取消事件");
   }
 
   /**
