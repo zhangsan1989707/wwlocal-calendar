@@ -16,6 +16,7 @@ DROP TABLE IF EXISTS calendar_auto_subscribe_scope;
 DROP TABLE IF EXISTS calendars;
 DROP TABLE IF EXISTS calendar_tag;
 DROP TABLE IF EXISTS system_config;
+DROP TABLE IF EXISTS app_user;
 DROP TABLE IF EXISTS users;
 DROP TABLE IF EXISTS departments;
 
@@ -45,6 +46,17 @@ CREATE TABLE users (
   status VARCHAR(20) NOT NULL DEFAULT 'active',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 用户表（用于JWT认证）
+CREATE TABLE app_user (
+  id              VARCHAR(50) PRIMARY KEY,
+  username        VARCHAR(50) UNIQUE NOT NULL,
+  password_hash   VARCHAR(200) NOT NULL,
+  display_name    VARCHAR(100),
+  role            VARCHAR(20) DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  enabled         BOOLEAN NOT NULL DEFAULT true,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE calendar_tag (
@@ -257,6 +269,13 @@ INSERT INTO users (id, department_id, name, email, mobile, status) VALUES
   ('user-006', 'dept-001', '产品经理', 'pm@example.local', '13800000006', 'active'),
   ('user-007', 'dept-002', '研发负责人', 'rdlead@example.local', '13800000007', 'active'),
   ('user-008', 'dept-003', '质量人员', 'qa@example.local', '13800000008', 'active');
+
+-- 预设应用用户数据（用于JWT认证）
+-- 密码都是：admin123
+INSERT INTO app_user(id, username, password_hash, display_name, role) VALUES
+('u_admin', 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '系统管理员', 'admin'),
+('u_zhangsan', 'zhangsan', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '张三', 'user'),
+('u_lisi', 'lisi', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '李四', 'user');
 
 -- 预设日历标签
 INSERT INTO calendar_tag (name, color) VALUES

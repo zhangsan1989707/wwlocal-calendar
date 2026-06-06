@@ -1,151 +1,15 @@
 {
-  "generatedAt": "2026-06-06T01:39:49.969Z",
-  "totalTests": 21,
-  "passed": 21,
+  "generatedAt": "2026-06-06T06:02:20.475Z",
+  "totalTests": 2,
+  "passed": 2,
   "failed": 0,
   "results": [
-    {
-      "id": 0,
-      "module": "日历视图",
-      "feature": "月视图展示",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-31-月视图展示-1780709889458.png"
-    },
-    {
-      "id": 0,
-      "module": "日历视图",
-      "feature": "周视图展示",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-32-周视图展示-1780709892267.png"
-    },
-    {
-      "id": 0,
-      "module": "日历视图",
-      "feature": "日视图展示",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-33-日视图展示-1780709894981.png"
-    },
-    {
-      "id": 0,
-      "module": "检索筛选",
-      "feature": "全局搜索-标题",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-34-全局搜索-标题-1780709898591.png"
-    },
-    {
-      "id": 0,
-      "module": "检索筛选",
-      "feature": "全局搜索-参与人",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-35-全局搜索-参与人-1780709900991.png"
-    },
-    {
-      "id": 0,
-      "module": "检索筛选",
-      "feature": "全局搜索-关键词",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-36-全局搜索-关键词-1780709905233.png"
-    },
-    {
-      "id": 0,
-      "module": "检索筛选",
-      "feature": "日历分类筛选",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-37-日历分类筛选-1780709907129.png"
-    },
-    {
-      "id": 0,
-      "module": "检索筛选",
-      "feature": "分组分色展示",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-38-分组分色展示-1780709909067.png",
-      "note": "共 11 个日历分组"
-    },
-    {
-      "id": 0,
-      "module": "日程编辑",
-      "feature": "编辑更新基本信息",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-39-编辑更新基本信息-1780709917173.png"
-    },
-    {
-      "id": 0,
-      "module": "日程编辑",
-      "feature": "保存并通知参会人",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-40-保存并通知参会人-1780709920042.png"
-    },
-    {
-      "id": 0,
-      "module": "日程删除",
-      "feature": "删除单次日程",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-41-删除单次日程-1780709926625.png"
-    },
-    {
-      "id": 0,
-      "module": "日程删除",
-      "feature": "删除重复日程-单条",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-42-删除重复日程-单条-1780709937274.png"
-    },
-    {
-      "id": 0,
-      "module": "日程删除",
-      "feature": "删除重复日程-全系列",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-43-删除重复日程-全系列-1780709948337.png"
-    },
-    {
-      "id": 0,
-      "module": "待办功能",
-      "feature": "日程绑定待办",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-44-日程绑定待办-1780709951886.png"
-    },
-    {
-      "id": 0,
-      "module": "待办功能",
-      "feature": "标注完成状态",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-45-标注完成状态-1780709958855.png"
-    },
-    {
-      "id": 0,
-      "module": "待办功能",
-      "feature": "设置优先级",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-46-设置优先级-1780709962716.png"
-    },
-    {
-      "id": 0,
-      "module": "数据导出",
-      "feature": "管理员导出日程报表",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-47-管理员导出日程报表-1780709966388.png"
-    },
-    {
-      "id": 0,
-      "module": "系统验证",
-      "feature": "数据持久化-创建",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-48-数据持久化-创建-1780709973075.png",
-      "note": "数据持久化成功，Store 加载 318 个事件"
-    },
-    {
-      "id": 0,
-      "module": "系统验证",
-      "feature": "数据持久化-编辑",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-49-数据持久化-编辑-1780709979929.png",
-      "note": "编辑持久化成功，Store 加载 319 个事件"
-    },
     {
       "id": 0,
       "module": "系统验证",
       "feature": "错误处理-后端异常",
       "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-50-错误处理-后端异常-1780709984767.png",
+      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-50-错误处理-后端异常-1780725735902.png",
       "note": "检测到验证提示"
     },
     {
@@ -153,8 +17,8 @@
       "module": "系统验证",
       "feature": "搜索结果数量限制",
       "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-51-搜索结果数量限制-1780709989389.png",
-      "note": "搜索结果共 200 条"
+      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-51-搜索结果数量限制-1780725740333.png",
+      "note": "搜索结果共 0 条"
     }
   ]
 }

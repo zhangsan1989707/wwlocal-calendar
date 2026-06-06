@@ -21,6 +21,11 @@ public class AuthInterceptor implements HandlerInterceptor {
         if (path.startsWith("/api/auth/")) {
             return true;
         }
+        
+        // 跳过外部联系人接口（支持未登录时添加）
+        if (path.startsWith("/api/external-contacts")) {
+            return true;
+        }
 
         // 跳过 OPTIONS 预检请求
         if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {

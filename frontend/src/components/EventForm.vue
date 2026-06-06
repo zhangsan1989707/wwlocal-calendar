@@ -718,7 +718,8 @@ function formatTime(date: Date) {
   position: relative;
   padding: 32px 32px 28px;
   overflow: auto;
-  border-right: 1px solid var(--calendar-border);
+  border-right: 1px solid #e5e8ef;
+  font-family: Inter, "PingFang SC", "Microsoft YaHei", system-ui, -apple-system, sans-serif;
 }
 
 .mobile-close-button {
@@ -743,9 +744,61 @@ function formatTime(date: Date) {
 }
 
 .compact-form :deep(.el-form-item__label) {
-  color: var(--calendar-text);
-  font-size: 16px;
-  font-weight: 700;
+  color: #172033;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.compact-form :deep(.el-input__wrapper) {
+  border-radius: 6px;
+  border-color: #e5e8ef;
+  box-shadow: none;
+  transition: all 0.2s ease;
+}
+
+.compact-form :deep(.el-input__wrapper:hover) {
+  border-color: #2f7cf6;
+}
+
+.compact-form :deep(.el-input__wrapper.is-focus) {
+  border-color: #2f7cf6;
+  box-shadow: 0 0 0 2px rgba(47, 124, 246, 0.1);
+}
+
+.compact-form :deep(.el-select__wrapper) {
+  border-radius: 6px;
+  border-color: #e5e8ef;
+  box-shadow: none;
+}
+
+.compact-form :deep(.el-select__wrapper:hover) {
+  border-color: #2f7cf6;
+}
+
+.compact-form :deep(.el-select__wrapper.is-focus) {
+  border-color: #2f7cf6;
+  box-shadow: 0 0 0 2px rgba(47, 124, 246, 0.1);
+}
+
+.compact-form :deep(.el-select-dropdown) {
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  border-color: #e5e8ef;
+}
+
+.compact-form :deep(.el-select-dropdown__item) {
+  padding: 10px 16px;
+  font-size: 14px;
+  color: #172033;
+}
+
+.compact-form :deep(.el-select-dropdown__item:hover) {
+  background: #f3f6fb;
+}
+
+.compact-form :deep(.el-select-dropdown__item.selected) {
+  color: #2f7cf6;
+  background: #e8f0fe;
 }
 
 .inline-fields {
@@ -936,11 +989,22 @@ function formatTime(date: Date) {
     height: 100vh;
     margin: 0;
     background: #fff;
+    border-radius: 0;
   }
 
   :global(.event-dialog .el-dialog__body) {
     height: calc(100vh - 96px);
     overflow: auto;
+    padding: 0;
+  }
+
+  :global(.event-dialog .el-dialog__header) {
+    display: none;
+  }
+
+  :global(.event-dialog .el-dialog__footer) {
+    padding: 0;
+    border: 0;
   }
 
   .event-editor {
@@ -966,9 +1030,11 @@ function formatTime(date: Date) {
     justify-content: center;
     border: 0;
     background: transparent;
-    color: #000;
-    font-size: 42px;
+    color: #111;
+    font-size: 36px;
     line-height: 1;
+    cursor: pointer;
+    z-index: 10;
   }
 
   .availability-pane {
@@ -977,67 +1043,88 @@ function formatTime(date: Date) {
 
   .title-input {
     margin: 0;
-    padding: 0 24px 34px;
-    border-bottom: 8px solid #f3f4f6;
+    padding: 0 24px 24px;
+    border-bottom: 6px solid #f3f4f6;
   }
 
   .title-input :deep(.el-input__wrapper) {
-    height: 52px;
+    height: 48px;
     padding-left: 0;
     border-radius: 0;
     box-shadow: none;
-    border-left: 3px solid #18a999;
+    border-left: 3px solid #2f7cf6;
+    border-right: 0;
+    border-top: 0;
+    border-bottom: 0;
   }
 
   .title-input :deep(.el-input__inner) {
-    padding-left: 8px;
-    color: #111;
-    font-size: 24px;
+    padding-left: 12px;
+    color: #172033;
+    font-size: 18px;
+    font-weight: 600;
   }
 
   .compact-form :deep(.el-form-item) {
-    min-height: 64px;
+    min-height: 72px;
     margin: 0;
     padding: 0 24px;
-    border-bottom: 1px solid #eef0f3;
+    border-bottom: 1px solid #e5e8ef;
+    display: flex;
+    align-items: center;
   }
 
   .compact-form :deep(.el-form-item__label) {
     min-width: 88px;
-    height: 64px;
+    height: 72px;
     display: flex;
     align-items: center;
-    color: #111;
-    font-size: 22px;
-    font-weight: 500;
+    color: #172033;
+    font-size: 16px;
+    font-weight: 600;
+    flex-shrink: 0;
   }
 
   .compact-form :deep(.el-form-item__content) {
-    min-height: 64px;
+    min-height: 72px;
     align-items: center;
     justify-content: flex-end;
+    flex: 1;
   }
 
   .compact-form :deep(.el-input__wrapper),
   .compact-form :deep(.el-select__wrapper) {
-    min-height: 40px;
-    border-radius: 4px;
-    background: #f5f6f8;
+    min-height: 44px;
+    border-radius: 8px;
+    background: #f8f9fa;
     box-shadow: none;
+    border-color: #e5e8ef;
+  }
+
+  .compact-form :deep(.el-input__inner) {
+    font-size: 16px;
+    color: #172033;
+  }
+
+  .compact-form :deep(.el-select__placeholder) {
+    font-size: 16px;
+    color: #9aa4b2;
   }
 
   .compact-form :deep(.el-textarea__inner) {
-    min-height: 92px;
-    padding: 16px 0;
-    border-radius: 0;
-    background: #fff;
+    min-height: 100px;
+    padding: 12px;
+    border-radius: 8px;
+    background: #f8f9fa;
     box-shadow: none;
-    font-size: 20px;
+    font-size: 16px;
+    border-color: #e5e8ef;
   }
 
   .inline-fields {
-    grid-template-columns: minmax(92px, 1fr) 84px auto;
+    grid-template-columns: minmax(120px, 1fr) 100px auto;
     justify-content: end;
+    gap: 8px;
   }
 
   .inline-fields :deep(.el-date-editor.el-input),
@@ -1046,21 +1133,42 @@ function formatTime(date: Date) {
     width: 100%;
   }
 
+  .inline-fields :deep(.el-date-editor .el-input__inner) {
+    font-size: 16px;
+  }
+
+  .inline-fields :deep(.el-time-select .el-input__inner) {
+    font-size: 16px;
+  }
+
+  .inline-fields :deep(.el-checkbox) {
+    margin-top: 8px;
+  }
+
+  .inline-fields :deep(.el-checkbox__label) {
+    font-size: 14px;
+  }
+
   .attach-button {
     width: auto;
-    padding: 0;
+    padding: 12px 16px;
     border: 0;
-    color: #111;
+    color: #2f7cf6;
     background: transparent;
-    font-size: 22px;
-    font-weight: 500;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 0;
+    text-decoration: underline;
   }
 
   .event-footer {
-    height: 96px;
-    padding: 14px 18px 22px;
-    border-top: 8px solid #f3f4f6;
+    height: 100px;
+    padding: 16px 24px;
+    border-top: 6px solid #f3f4f6;
     background: #fff;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
   }
 
   .event-footer .el-button:first-child {
@@ -1069,13 +1177,27 @@ function formatTime(date: Date) {
 
   .event-footer .el-button--primary {
     width: 100%;
-    height: 56px;
-    border-radius: 6px;
-    font-size: 24px;
+    height: 52px;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 600;
   }
 
   .todo-row {
     grid-template-columns: 1fr;
+  }
+
+  .todo-item {
+    grid-template-columns: 1fr 100px auto;
+    gap: 8px;
+  }
+
+  .todo-item :deep(.el-input__wrapper) {
+    min-height: 44px;
+  }
+
+  .todo-item :deep(.el-select__wrapper) {
+    min-height: 44px;
   }
 }
 </style>
