@@ -25,6 +25,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EventService {
@@ -206,16 +207,16 @@ public class EventService {
 
     // 如果传了日期范围参数，使用参数范围
     if (params.get("start_at") != null && !params.get("start_at").isBlank()) {
-      expandStart = LocalDateTime.parse(params.get("start_at").replace(" ", "T"));
+      expandStart = parseIsoDateTime(params.get("start_at"));
     }
     if (params.get("start") != null && !params.get("start").isBlank()) {
-      expandStart = LocalDateTime.parse(params.get("start").replace(" ", "T"));
+      expandStart = parseIsoDateTime(params.get("start"));
     }
     if (params.get("end_at") != null && !params.get("end_at").isBlank()) {
-      expandEnd = LocalDateTime.parse(params.get("end_at").replace(" ", "T"));
+      expandEnd = parseIsoDateTime(params.get("end_at"));
     }
     if (params.get("end") != null && !params.get("end").isBlank()) {
-      expandEnd = LocalDateTime.parse(params.get("end").replace(" ", "T"));
+      expandEnd = parseIsoDateTime(params.get("end"));
     }
 
     for (var event : baseEvents) {
@@ -456,6 +457,20 @@ public class EventService {
     };
   }
 
+  /**
+   * Parse ISO 8601 datetime string, handling both 'Z' suffix (UTC) and local datetime formats.
+   */
+  private LocalDateTime parseIsoDateTime(String s) {
+    if (s == null || s.isBlank()) {
+      return LocalDateTime.now();
+    }
+    var normalized = s.replace(" ", "T");
+    if (normalized.endsWith("Z")) {
+      return Instant.parse(normalized).atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+    return LocalDateTime.parse(normalized);
+  }
+
   private LocalDateTime toLocalDateTime(Object value) {
     if (value instanceof Timestamp ts) {
       return ts.toLocalDateTime();
@@ -464,7 +479,12 @@ public class EventService {
       return d.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
     }
     if (value instanceof String s) {
-      return LocalDateTime.parse(s.replace(" ", "T"));
+      // Handle ISO 8601 formats including those with 'Z' suffix (UTC)
+      var normalized = s.replace(" ", "T");
+      if (normalized.endsWith("Z")) {
+        return Instant.parse(normalized).atZone(ZoneId.systemDefault()).toLocalDateTime();
+      }
+      return LocalDateTime.parse(normalized);
     }
     return LocalDateTime.now();
   }
@@ -472,6 +492,7 @@ public class EventService {
   /**
    * Create or update an event. After saving the event row, replaces reminders and recurrence.
    */
+  @Transactional
   public Map<String, Object> save(Map<String, Object> payload) {
     // Convert ISO string dates to Timestamp for PostgreSQL
     coerceTimestamp(payload, "start_at");
@@ -610,6 +631,7 @@ public class EventService {
    * scope=single: soft-delete single event (status = CANCELLED).
    * scope=series: cancel the entire recurrence series.
    */
+  @Transactional
   public void remove(long id, String operatorUserId, String scope) {
     if ("series".equals(scope)) {
       // 删除整个重复系列：取消主事件
