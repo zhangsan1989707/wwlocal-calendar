@@ -483,13 +483,14 @@ public class EventService {
       
       // 检查权限：只有发起人可以编辑
       var operatorUserId = payload.get("operatorUserId");
-      if (operatorUserId != null) {
-        var existingEvent = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
-        if (!existingEvent.isEmpty()) {
-          var organizerId = existingEvent.get(0).get("organizer_user_id");
-          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-            throw new SecurityException("只有发起人可以编辑此日程");
-          }
+      if (operatorUserId == null) {
+        throw new SecurityException("缺少操作者身份信息");
+      }
+      var existingEvent = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+      if (!existingEvent.isEmpty()) {
+        var organizerId = existingEvent.get(0).get("organizer_user_id");
+        if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
+          throw new SecurityException("只有发起人可以编辑此日程");
         }
       }
       
@@ -613,13 +614,14 @@ public class EventService {
   public void remove(long id, String operatorUserId, String scope) {
     if ("series".equals(scope)) {
       // 删除整个重复系列：取消主事件
-      if (operatorUserId != null) {
-        var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
-        if (!event.isEmpty()) {
-          var organizerId = event.get(0).get("organizer_user_id");
-          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-            throw new SecurityException("只有发起人可以删除此日程");
-          }
+      if (operatorUserId == null) {
+        throw new SecurityException("缺少操作者身份信息");
+      }
+      var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+      if (!event.isEmpty()) {
+        var organizerId = event.get(0).get("organizer_user_id");
+        if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
+          throw new SecurityException("只有发起人可以删除此日程");
         }
       }
       jdbc.update("DELETE FROM event_recurrence WHERE event_id = ?", id);
@@ -635,13 +637,14 @@ public class EventService {
     }
     
     // 检查权限：只有发起人可以删除
-    if (operatorUserId != null) {
-      var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
-      if (!event.isEmpty()) {
-        var organizerId = event.get(0).get("organizer_user_id");
-        if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-          throw new SecurityException("只有发起人可以删除此日程");
-        }
+    if (operatorUserId == null) {
+      throw new SecurityException("缺少操作者身份信息");
+    }
+    var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+    if (!event.isEmpty()) {
+      var organizerId = event.get(0).get("organizer_user_id");
+      if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
+        throw new SecurityException("只有发起人可以删除此日程");
       }
     }
     
@@ -654,7 +657,10 @@ public class EventService {
   /**
    * Respond to an event invitation. Upserts a row in event_participant.
    */
-  public void respond(long id, String userId, String status) {
+  public void respond(long id, String userId, String operatorUserId, String status) {
+    if (operatorUserId == null || !operatorUserId.equals(userId)) {
+      throw new SecurityException("只能操作自己的回执状态");
+    }
     var existing = jdbc.queryForList(
         "SELECT response_status FROM event_participant WHERE event_id = ? AND user_id = ?", id, userId);
     if (existing.isEmpty()) {

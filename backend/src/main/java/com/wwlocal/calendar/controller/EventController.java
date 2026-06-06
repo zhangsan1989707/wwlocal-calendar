@@ -58,7 +58,9 @@ public class EventController {
 
     @PostMapping("/events/{id}/respond")
     public ApiResponse<Void> respond(@PathVariable long id, @RequestBody Map<String, Object> payload) {
-        events.respond(id, String.valueOf(payload.get("userId")), String.valueOf(payload.get("status")));
+        String userId = String.valueOf(payload.get("userId"));
+        String operatorUserId = payload.get("operatorUserId") != null ? String.valueOf(payload.get("operatorUserId")) : null;
+        events.respond(id, userId, operatorUserId, String.valueOf(payload.get("status")));
         return ApiResponse.ok();
     }
 
