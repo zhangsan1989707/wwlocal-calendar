@@ -29,7 +29,7 @@ import java.util.Map;
 import java.util.UUID;
 
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/legacy")
 public class FileController {
 
     private final JdbcTemplate jdbc;

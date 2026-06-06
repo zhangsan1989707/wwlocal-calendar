@@ -294,11 +294,11 @@ public class EventService {
           var modifiedData = exData.get("modified_data");
           if (modifiedData != null) {
             try {
-              @SuppressWarnings("unchecked")
               var modMap = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
-                  String.valueOf(modifiedData), Map.class);
-              for (var key : modMap.keySet()) {
-                instance.put(key, modMap.get(key));
+                  String.valueOf(modifiedData), 
+                  new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {});
+              for (var entry : modMap.entrySet()) {
+                instance.put(entry.getKey(), entry.getValue());
               }
             } catch (Exception ignored) {}
           }
