@@ -205,17 +205,21 @@ public class EventService {
     var expandEnd = now.plusMonths(3).plusDays(1).atStartOfDay();
 
     // 如果传了日期范围参数，使用参数范围
-    if (params.get("start_at") != null && !params.get("start_at").isBlank()) {
-      expandStart = LocalDateTime.parse(params.get("start_at").replace(" ", "T"));
-    }
-    if (params.get("start") != null && !params.get("start").isBlank()) {
-      expandStart = LocalDateTime.parse(params.get("start").replace(" ", "T"));
-    }
-    if (params.get("end_at") != null && !params.get("end_at").isBlank()) {
-      expandEnd = LocalDateTime.parse(params.get("end_at").replace(" ", "T"));
-    }
-    if (params.get("end") != null && !params.get("end").isBlank()) {
-      expandEnd = LocalDateTime.parse(params.get("end").replace(" ", "T"));
+    try {
+      if (params.get("start_at") != null && !params.get("start_at").isBlank()) {
+        expandStart = LocalDateTime.parse(params.get("start_at").replace(" ", "T"));
+      }
+      if (params.get("start") != null && !params.get("start").isBlank()) {
+        expandStart = LocalDateTime.parse(params.get("start").replace(" ", "T"));
+      }
+      if (params.get("end_at") != null && !params.get("end_at").isBlank()) {
+        expandEnd = LocalDateTime.parse(params.get("end_at").replace(" ", "T"));
+      }
+      if (params.get("end") != null && !params.get("end").isBlank()) {
+        expandEnd = LocalDateTime.parse(params.get("end").replace(" ", "T"));
+      }
+    } catch (java.time.format.DateTimeParseException e) {
+      throw new IllegalArgumentException("日期格式无效，请使用 ISO 格式（如 2026-06-01T00:00:00）", e);
     }
 
     for (var event : baseEvents) {
@@ -342,12 +346,13 @@ public class EventService {
     }
 
     var current = start;
-    var countGenerated = 0;
+    var totalGenerated = 0;  // 已生成的总实例数（含范围外的），用于 COUNT 比较
     var totalIterations = 0;
     var maxIterations = 10000; // 安全上限（总迭代次数）
 
     while (totalIterations < maxIterations) {
-      if (countGenerated >= maxCount) {
+      // COUNT 限制：已生成的总实例数达到上限则停止
+      if (totalGenerated >= maxCount) {
         break;
       }
       if (current.toLocalDate().isAfter(expandEnd.toLocalDate().plusDays(1))) {
@@ -357,9 +362,10 @@ public class EventService {
         break;
       }
 
+      totalGenerated++;
+
       if (current.isAfter(expandStart.minusSeconds(1)) || current.isEqual(expandStart)) {
         instances.add(current);
-        countGenerated++;
       }
 
       // 计算下一个实例
@@ -483,13 +489,14 @@ public class EventService {
       
       // 检查权限：只有发起人可以编辑
       var operatorUserId = payload.get("operatorUserId");
-      if (operatorUserId != null) {
-        var existingEvent = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
-        if (!existingEvent.isEmpty()) {
-          var organizerId = existingEvent.get(0).get("organizer_user_id");
-          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-            throw new SecurityException("只有发起人可以编辑此日程");
-          }
+      if (operatorUserId == null || String.valueOf(operatorUserId).isBlank()) {
+        throw new SecurityException("操作人身份不能为空");
+      }
+      var existingEvent = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+      if (!existingEvent.isEmpty()) {
+        var organizerId = existingEvent.get(0).get("organizer_user_id");
+        if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
+          throw new SecurityException("只有发起人可以编辑此日程");
         }
       }
       
@@ -613,20 +620,19 @@ public class EventService {
   public void remove(long id, String operatorUserId, String scope) {
     if ("series".equals(scope)) {
       // 删除整个重复系列：取消主事件
-      if (operatorUserId != null) {
-        var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
-        if (!event.isEmpty()) {
-          var organizerId = event.get(0).get("organizer_user_id");
-          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-            throw new SecurityException("只有发起人可以删除此日程");
-          }
+      if (operatorUserId == null || operatorUserId.isBlank()) {
+        throw new SecurityException("操作人身份不能为空");
+      }
+      var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+      if (!event.isEmpty()) {
+        var organizerId = event.get(0).get("organizer_user_id");
+        if (!operatorUserId.equals(String.valueOf(organizerId))) {
+          throw new SecurityException("只有发起人可以删除此日程");
         }
       }
       jdbc.update("DELETE FROM event_recurrence WHERE event_id = ?", id);
       jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
-      if (operatorUserId != null) {
-        audit.record(operatorUserId, "event", "cancel_series", "event", id, "整个重复系列已取消");
-      }
+      audit.record(operatorUserId, "event", "cancel_series", "event", id, "整个重复系列已取消");
       return;
     }
 
@@ -635,20 +641,19 @@ public class EventService {
     }
     
     // 检查权限：只有发起人可以删除
-    if (operatorUserId != null) {
-      var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
-      if (!event.isEmpty()) {
-        var organizerId = event.get(0).get("organizer_user_id");
-        if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-          throw new SecurityException("只有发起人可以删除此日程");
-        }
+    if (operatorUserId == null || operatorUserId.isBlank()) {
+      throw new SecurityException("操作人身份不能为空");
+    }
+    var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
+    if (!event.isEmpty()) {
+      var organizerId = event.get(0).get("organizer_user_id");
+      if (!operatorUserId.equals(String.valueOf(organizerId))) {
+        throw new SecurityException("只有发起人可以删除此日程");
       }
     }
     
     jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
-    if (operatorUserId != null) {
-      audit.record(operatorUserId, "event", "cancel", "event", id, "单次取消事件");
-    }
+    audit.record(operatorUserId, "event", "cancel", "event", id, "单次取消事件");
   }
 
   /**
