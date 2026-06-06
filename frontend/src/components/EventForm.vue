@@ -5,7 +5,7 @@
         <button class="mobile-close-button" type="button" @click="visible = false">×</button>
         <el-input v-model="form.title" class="title-input" maxlength="100" placeholder="日程、活动主题" />
 
-        <el-form :model="form" label-width="74px" class="compact-form">
+        <el-form :model="form" label-width="84px" class="compact-form">
           <el-form-item label="参会人">
             <el-select v-model="participantIds" multiple filterable placeholder="添加内部成员">
               <el-option v-for="item in users" :key="item.id" :label="item.name" :value="String(item.id)" />
@@ -552,22 +552,26 @@ watch(
         if (reminders.length > 0) {
           const reminder = reminders[0]
           const minutes = reminder.minutes_before
-          // 根据分钟数设置对应的标签
-          if (minutes === 0) {
-            reminderLabel.value = '即时'
-          } else if (minutes === 5) {
-            reminderLabel.value = '5分钟前'
-          } else if (minutes === 15) {
-            reminderLabel.value = '15分钟前'
-          } else if (minutes === 30) {
-            reminderLabel.value = '30分钟前'
-          } else if (minutes === 60) {
-            reminderLabel.value = '1小时前'
-          } else if (minutes === 1440) {
-            reminderLabel.value = '1天前'
-          } else {
-            reminderLabel.value = '自定义'
-            customReminderMinutes.value = Number(minutes) || 10
+          // 仅当用户尚未在弹窗打开后修改提醒档位时，才把数据库里的提醒回填
+          // 避免异步加载覆盖用户已选的“单次特例提醒”等值
+          if (reminderLabel.value === '15分钟前' && customReminderMinutes.value === 10) {
+            // 根据分钟数设置对应的标签
+            if (minutes === 0) {
+              reminderLabel.value = '即时'
+            } else if (minutes === 5) {
+              reminderLabel.value = '5分钟前'
+            } else if (minutes === 15) {
+              reminderLabel.value = '15分钟前'
+            } else if (minutes === 30) {
+              reminderLabel.value = '30分钟前'
+            } else if (minutes === 60) {
+              reminderLabel.value = '1小时前'
+            } else if (minutes === 1440) {
+              reminderLabel.value = '1天前'
+            } else {
+              reminderLabel.value = '自定义'
+              customReminderMinutes.value = Number(minutes) || 10
+            }
           }
         }
       } catch {
@@ -1046,6 +1050,7 @@ function formatTime(date: Date) {
   position: relative;
   display: grid;
   grid-template-rows: repeat(13, 43px);
+  grid-row: 1 / -1;
 }
 
 .availability-grid span {
