@@ -208,16 +208,16 @@ public class EventService {
 
     // 如果传了日期范围参数，使用参数范围
     if (params.get("start_at") != null && !params.get("start_at").isBlank()) {
-      expandStart = LocalDateTime.parse(params.get("start_at").replace(" ", "T"));
+      expandStart = parseDateTimeParam(params.get("start_at"));
     }
     if (params.get("start") != null && !params.get("start").isBlank()) {
-      expandStart = LocalDateTime.parse(params.get("start").replace(" ", "T"));
+      expandStart = parseDateTimeParam(params.get("start"));
     }
     if (params.get("end_at") != null && !params.get("end_at").isBlank()) {
-      expandEnd = LocalDateTime.parse(params.get("end_at").replace(" ", "T"));
+      expandEnd = parseDateTimeParam(params.get("end_at"));
     }
     if (params.get("end") != null && !params.get("end").isBlank()) {
-      expandEnd = LocalDateTime.parse(params.get("end").replace(" ", "T"));
+      expandEnd = parseDateTimeParam(params.get("end"));
     }
 
     for (var event : baseEvents) {
@@ -264,6 +264,7 @@ public class EventService {
       }
 
       for (var instanceStart : instances) {
+        var originalInstanceStart = instanceStart;
         var instanceDate = instanceStart.toLocalDate();
         if (cancelledDates.contains(instanceDate)) {
           continue; // 跳过已取消的实例
@@ -285,8 +286,10 @@ public class EventService {
         var instance = new LinkedHashMap<>(event);
         instance.put("start_at", Timestamp.valueOf(instanceStart));
         instance.put("end_at", Timestamp.valueOf(instanceEnd));
+        instance.put("original_start_at", Timestamp.valueOf(originalInstanceStart));
         instance.put("is_recurrence_instance", true);
         instance.put("recurrence_event_id", eventId);
+        instance.put("recurrence_rule", rrule);
 
         // 应用单次修改的 modified_data 和 reminder_override
         var exData = exceptionData.get(instanceDate);
@@ -490,9 +493,23 @@ public class EventService {
       return d.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
     }
     if (value instanceof String s) {
-      return LocalDateTime.parse(s.replace(" ", "T"));
+      var normalized = s.replace(" ", "T");
+      try {
+        return java.time.OffsetDateTime.parse(normalized).toLocalDateTime();
+      } catch (Exception ignored) {
+        return LocalDateTime.parse(normalized);
+      }
     }
     return LocalDateTime.now();
+  }
+
+  private LocalDateTime parseDateTimeParam(String value) {
+    var normalized = value.replace(" ", "T");
+    try {
+      return java.time.OffsetDateTime.parse(normalized).toLocalDateTime();
+    } catch (Exception ignored) {
+      return LocalDateTime.parse(normalized);
+    }
   }
 
   /**
@@ -528,7 +545,7 @@ public class EventService {
         }
       }
 
-      // 如果是编辑单次重复实例，创建 event_exception
+      // 如果是编辑单次重复实例，只创建 event_exception，不改动主系列模板
       if (editSingle && payload.get("originalStartAt") != null) {
         var originalStartAt = String.valueOf(payload.get("originalStartAt"));
         var recurrenceRow = jdbc.queryForList(
@@ -568,9 +585,8 @@ public class EventService {
               recurrenceId, originalStartAt,
               payload.get("start_at"), payload.get("end_at"),
               modifiedJson, reminderOverrideJson, "单次修改");
-          
-          // 仍然更新主 event（作为模板）
-          event = crud.update("event", COLUMNS, id, payload);
+
+          event = jdbc.queryForMap("SELECT * FROM event WHERE id = ?", id);
         } else {
           event = crud.update("event", COLUMNS, id, payload);
         }
@@ -582,11 +598,13 @@ public class EventService {
     }
     long eventId = ((Number) event.get("id")).longValue();
 
-    // Cascading: replace reminders, participants, todos and recurrence from payload
-    replaceReminders(eventId, payload);
-    replaceParticipants(eventId, payload);
-    replaceTodos(eventId, payload);
-    replaceRecurrence(eventId, payload);
+    // Cascading: single-instance edits are stored as event_exception and must not replace the whole series.
+    if (!editSingle) {
+      replaceReminders(eventId, payload);
+      replaceParticipants(eventId, payload);
+      replaceTodos(eventId, payload);
+      replaceRecurrence(eventId, payload);
+    }
 
     // 发送通知：如果是更新已有日程，通知参与人
     if (payload.containsKey("id") && payload.get("id") != null) {
@@ -734,7 +752,7 @@ public class EventService {
    *               for recurring instances, create event_exception(CANCELLED).
    * scope=series: cancel the entire recurrence series.
    */
-  public void remove(long id, String operatorUserId, String scope) {
+  public void remove(long id, String operatorUserId, String scope, String originalStartAt) {
     // 权限检查
     if (operatorUserId != null) {
       var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
@@ -767,14 +785,16 @@ public class EventService {
 
       if (recurrenceId != null) {
         // 这是重复日程：创建 event_exception(CANCELLED) 来取消单次
-        var originalStartAt = eventData.get("start_at");
+        var exceptionStartAt = originalStartAt != null && !originalStartAt.isBlank()
+            ? originalStartAt
+            : String.valueOf(eventData.get("start_at"));
         var existingExceptions = jdbc.queryForList(
-            "SELECT id FROM event_exception WHERE recurrence_id = ? AND original_start_at = ?",
-            ((Number) recurrenceId).longValue(), originalStartAt);
+            "SELECT id FROM event_exception WHERE recurrence_id = ? AND original_start_at = ?::timestamptz",
+            ((Number) recurrenceId).longValue(), exceptionStartAt);
         if (existingExceptions.isEmpty()) {
           jdbc.update(
-              "INSERT INTO event_exception(recurrence_id, original_start_at, exception_type, reason) VALUES (?, ?, 'CANCELLED', ?)",
-              ((Number) recurrenceId).longValue(), originalStartAt, "用户手动取消单次");
+              "INSERT INTO event_exception(recurrence_id, original_start_at, exception_type, reason) VALUES (?, ?::timestamptz, 'CANCELLED', ?)",
+              ((Number) recurrenceId).longValue(), exceptionStartAt, "用户手动取消单次");
         }
         if (operatorUserId != null) {
           audit.record(operatorUserId, "event", "cancel_single", "event_exception", id, "取消单次重复日程实例");
@@ -800,12 +820,12 @@ public class EventService {
         "SELECT response_status FROM event_participant WHERE event_id = ? AND user_id = ?", id, userId);
     if (existing.isEmpty()) {
       jdbc.update("""
-          INSERT INTO event_participant(event_id, user_id, response_status)
-          VALUES (?, ?, ?)
+          INSERT INTO event_participant(event_id, user_id, response_status, response_at)
+          VALUES (?, ?, ?, now())
           """, id, userId, status);
     } else {
       jdbc.update(
-          "UPDATE event_participant SET response_status = ? WHERE event_id = ? AND user_id = ?",
+          "UPDATE event_participant SET response_status = ?, response_at = now() WHERE event_id = ? AND user_id = ?",
           status, id, userId);
     }
   }
@@ -950,7 +970,18 @@ public class EventService {
   }
 
   public List<Map<String, Object>> getEventParticipants(long eventId) {
-    return jdbc.queryForList("SELECT ep.*, u.name FROM event_participant ep LEFT JOIN users u ON ep.user_id = u.id WHERE ep.event_id = ?", eventId);
+    return jdbc.queryForList("""
+        SELECT ep.*,
+               COALESCE(u.name, d.name, ec.name) AS name,
+               ec.company AS external_company,
+               ec.contact_type AS external_contact_type
+        FROM event_participant ep
+        LEFT JOIN users u ON ep.user_id = u.id
+        LEFT JOIN departments d ON ep.department_id = d.id
+        LEFT JOIN external_contact ec ON ep.external_contact_id = ec.id
+        WHERE ep.event_id = ?
+        ORDER BY ep.id
+        """, eventId);
   }
 
   public List<Map<String, Object>> getEventReminders(long eventId) {

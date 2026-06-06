@@ -62,6 +62,12 @@ public class OpsController {
     if (file.isEmpty()) {
       throw new IllegalArgumentException("文件不能为空");
     }
+    if (eventId == null || eventId.isBlank()) {
+      throw new IllegalArgumentException("请先保存日程再上传附件");
+    }
+    if (userId == null || userId.isBlank()) {
+      throw new IllegalArgumentException("上传人不能为空");
+    }
     var original = StringUtils.cleanPath(file.getOriginalFilename() == null ? "file" : file.getOriginalFilename());
     if (original.contains("..")) {
       throw new IllegalArgumentException("文件名不合法");
@@ -74,12 +80,19 @@ public class OpsController {
       throw new IllegalArgumentException("保存路径不合法");
     }
     file.transferTo(target);
-    Long eventIdLong = eventId != null && !eventId.isBlank() ? Long.valueOf(eventId) : null;
+    Long eventIdLong = Long.valueOf(eventId);
+    var eventCount = jdbc.queryForObject("SELECT COUNT(*) FROM event WHERE id = ?", Integer.class, eventIdLong);
+    if (eventCount == null || eventCount == 0) {
+      throw new IllegalArgumentException("日程不存在，无法关联附件");
+    }
+    var contentType = file.getContentType() == null || file.getContentType().isBlank()
+        ? MediaType.APPLICATION_OCTET_STREAM_VALUE
+        : file.getContentType();
     var row = jdbc.queryForMap("""
         INSERT INTO event_attachment(event_id, file_name, file_path, file_size, content_type, uploaded_by)
         VALUES (?, ?, ?, ?, ?, ?)
         RETURNING *
-        """, eventIdLong, original, target.toString(), file.getSize(), file.getContentType(), userId);
+        """, eventIdLong, original, target.toString(), file.getSize(), contentType, userId);
     audit.record(userId, "ATTACHMENT", "UPLOAD", "event_attachment", row.get("id"), "附件已上传");
     return ApiResponse.ok(row);
   }

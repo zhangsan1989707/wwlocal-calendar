@@ -43,7 +43,7 @@ public class AuthController {
             return ApiResponse.error(401, "用户名或密码错误");
         }
 
-        var userId = String.valueOf(user.get("id"));
+        var userId = resolveBusinessUserId(username, String.valueOf(user.get("id")));
         var role = String.valueOf(user.get("role"));
         var token = jwtUtil.generateToken(userId, username, role);
 
@@ -72,8 +72,12 @@ public class AuthController {
             return ApiResponse.error(409, "用户名已存在");
         }
 
-        var userId = "u_" + System.currentTimeMillis();
         var hash = sha256(password);
+        var userRow = jdbc.queryForMap(
+            "INSERT INTO users(name, status) VALUES (?, 'active') RETURNING id",
+            displayName
+        );
+        var userId = String.valueOf(userRow.get("id"));
 
         jdbc.update(
             "INSERT INTO app_user(id, username, password_hash, display_name, role) VALUES (?, ?, ?, ?, ?)",
@@ -109,5 +113,20 @@ public class AuthController {
         } catch (NoSuchAlgorithmException e) {
             throw new RuntimeException(e);
         }
+    }
+
+    private String resolveBusinessUserId(String username, String appUserId) {
+        var direct = jdbc.queryForList("SELECT id FROM users WHERE id = ?", appUserId);
+        if (!direct.isEmpty()) {
+            return appUserId;
+        }
+        var fallback = switch (username) {
+            case "admin" -> "user-001";
+            case "zhangsan" -> "user-002";
+            case "lisi" -> "user-003";
+            default -> appUserId;
+        };
+        var mapped = jdbc.queryForList("SELECT id FROM users WHERE id = ?", fallback);
+        return mapped.isEmpty() ? appUserId : fallback;
     }
 }

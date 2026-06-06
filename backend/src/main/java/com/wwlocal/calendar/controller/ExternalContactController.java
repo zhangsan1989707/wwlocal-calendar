@@ -42,7 +42,13 @@ public class ExternalContactController {
         row.put("created_by", payload.getOrDefault("created_by", ""));
         row.put("created_at", Timestamp.from(Instant.now()));
 
-        // 使用简单的 INSERT RETURNING
+        jdbc.queryForObject("""
+            SELECT setval(
+              pg_get_serial_sequence('external_contact', 'id'),
+              GREATEST(COALESCE((SELECT MAX(id) FROM external_contact), 1), 1),
+              (SELECT COUNT(*) FROM external_contact) > 0
+            )
+            """, Long.class);
         var id = jdbc.queryForObject(
             "INSERT INTO external_contact(name, email, company, contact_type, phone, created_by) VALUES (?, ?, ?, ?, ?, ?) RETURNING id",
             Long.class,

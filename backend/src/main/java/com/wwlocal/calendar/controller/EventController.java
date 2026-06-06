@@ -64,8 +64,9 @@ public class EventController {
     @DeleteMapping("/events/{id}")
     public ApiResponse<Void> delete(@PathVariable long id,
                                     @RequestParam(required = false) String operatorUserId,
-                                    @RequestParam(required = false, defaultValue = "single") String scope) {
-        events.remove(id, operatorUserId, scope);
+                                    @RequestParam(required = false, defaultValue = "single") String scope,
+                                    @RequestParam(required = false) String originalStartAt) {
+        events.remove(id, operatorUserId, scope, originalStartAt);
         return ApiResponse.ok();
     }
 

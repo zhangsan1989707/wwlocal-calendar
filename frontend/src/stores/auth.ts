@@ -27,11 +27,10 @@ export const useAuthStore = defineStore('auth', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
     })
-    if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.message || '登录失败')
-    }
     const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || '登录失败')
+    }
     const d = data.data
     state.value.token = d.token
     state.value.userId = d.userId
@@ -52,11 +51,11 @@ export const useAuthStore = defineStore('auth', () => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, displayName })
     })
-    if (!res.ok) {
-      const err = await res.json()
-      throw new Error(err.message || '注册失败')
+    const data = await res.json()
+    if (!res.ok || !data.success) {
+      throw new Error(data.message || '注册失败')
     }
-    return await res.json()
+    return data
   }
 
   function logout() {

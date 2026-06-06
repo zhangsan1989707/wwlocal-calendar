@@ -1,5 +1,8 @@
 BEGIN;
 
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+
+DROP TABLE IF EXISTS notification;
 DROP TABLE IF EXISTS audit_log;
 DROP TABLE IF EXISTS backup_record;
 DROP TABLE IF EXISTS export_task;
@@ -9,6 +12,7 @@ DROP TABLE IF EXISTS event_exception;
 DROP TABLE IF EXISTS event_recurrence;
 DROP TABLE IF EXISTS event_reminder;
 DROP TABLE IF EXISTS event_participant;
+DROP TABLE IF EXISTS external_contact;
 DROP TABLE IF EXISTS event;
 DROP TABLE IF EXISTS calendar_subscription;
 DROP TABLE IF EXISTS calendar_shared_member;
@@ -50,7 +54,7 @@ CREATE TABLE users (
 
 -- 用户表（用于JWT认证）
 CREATE TABLE app_user (
-  id              VARCHAR(50) PRIMARY KEY,
+  id              VARCHAR(36) PRIMARY KEY REFERENCES users(id),
   username        VARCHAR(50) UNIQUE NOT NULL,
   password_hash   VARCHAR(200) NOT NULL,
   display_name    VARCHAR(100),
@@ -131,16 +135,33 @@ CREATE TABLE event (
   CHECK (end_at > start_at)
 );
 
+CREATE TABLE external_contact (
+  id BIGSERIAL PRIMARY KEY,
+  name VARCHAR(100) NOT NULL,
+  email VARCHAR(200),
+  company VARCHAR(200),
+  contact_type VARCHAR(20) DEFAULT 'wechat' CHECK (contact_type IN ('wechat', 'client', 'partner')),
+  phone VARCHAR(30),
+  created_by VARCHAR(36) REFERENCES users(id),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE event_participant (
   id BIGSERIAL PRIMARY KEY,
   event_id BIGINT NOT NULL REFERENCES event(id) ON DELETE CASCADE,
   user_id VARCHAR(36) REFERENCES users(id),
   department_id VARCHAR(36) REFERENCES departments(id),
+  external_contact_id BIGINT REFERENCES external_contact(id) ON DELETE SET NULL,
+  role VARCHAR(20) NOT NULL DEFAULT 'VIEWER' CHECK (role IN ('VIEWER', 'EDITOR')),
   response_status VARCHAR(20) NOT NULL DEFAULT 'NEEDS_ACTION'
     CHECK (response_status IN ('ACCEPTED', 'DECLINED', 'TENTATIVE', 'NEEDS_ACTION')),
   response_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  CHECK ((user_id IS NOT NULL AND department_id IS NULL) OR (user_id IS NULL AND department_id IS NOT NULL)),
+  CHECK (
+    (user_id IS NOT NULL AND department_id IS NULL AND external_contact_id IS NULL)
+    OR (user_id IS NULL AND department_id IS NOT NULL AND external_contact_id IS NULL)
+    OR (user_id IS NULL AND department_id IS NULL AND external_contact_id IS NOT NULL)
+  ),
   UNIQUE (event_id, user_id)
 );
 
@@ -168,6 +189,8 @@ CREATE TABLE event_exception (
   exception_type VARCHAR(20) NOT NULL CHECK (exception_type IN ('CANCELLED', 'MOVED')),
   new_start_at TIMESTAMPTZ,
   new_end_at TIMESTAMPTZ,
+  modified_data JSONB,
+  reminder_override JSONB,
   reason VARCHAR(200),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CHECK (
@@ -224,13 +247,24 @@ CREATE TABLE backup_record (
   finished_at TIMESTAMPTZ
 );
 
+CREATE TABLE notification (
+  id BIGSERIAL PRIMARY KEY,
+  user_id VARCHAR(36) NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_id BIGINT REFERENCES event(id) ON DELETE CASCADE,
+  title VARCHAR(300) NOT NULL,
+  message TEXT,
+  notification_type VARCHAR(50) DEFAULT 'event_update',
+  is_read BOOLEAN NOT NULL DEFAULT FALSE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE audit_log (
   id BIGSERIAL PRIMARY KEY,
   operator_user_id VARCHAR(36) REFERENCES users(id),
   module VARCHAR(60) NOT NULL,
   action VARCHAR(60) NOT NULL,
   object_type VARCHAR(60) NOT NULL,
-  object_id BIGINT,
+  object_id VARCHAR(64),
   detail TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
@@ -251,6 +285,7 @@ CREATE INDEX idx_event_time_range ON event(start_at, end_at);
 CREATE INDEX idx_event_calendar_time ON event(calendar_id, start_at, end_at);
 CREATE INDEX idx_event_participant_user ON event_participant(user_id, response_status);
 CREATE INDEX idx_event_attachment_event ON event_attachment(event_id);
+CREATE INDEX idx_notification_user ON notification(user_id, is_read, created_at DESC);
 CREATE INDEX idx_audit_log_created_at ON audit_log(created_at DESC);
 
 -- 预设部门数据
@@ -273,9 +308,9 @@ INSERT INTO users (id, department_id, name, email, mobile, status) VALUES
 -- 预设应用用户数据（用于JWT认证）
 -- 密码都是：admin123
 INSERT INTO app_user(id, username, password_hash, display_name, role) VALUES
-('u_admin', 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '系统管理员', 'admin'),
-('u_zhangsan', 'zhangsan', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '张三', 'user'),
-('u_lisi', 'lisi', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '李四', 'user');
+('user-001', 'admin', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '李宇航', 'admin'),
+('user-002', 'zhangsan', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '张三', 'user'),
+('user-003', 'lisi', '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9', '李四', 'user');
 
 -- 预设日历标签
 INSERT INTO calendar_tag (name, color) VALUES

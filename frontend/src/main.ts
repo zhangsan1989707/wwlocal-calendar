@@ -5,6 +5,6 @@ import 'element-plus/dist/index.css';
 import './styles/global.css';
 import './styles.css';
 import App from './App.vue';
-import router from './router';
+import router from './router/index';
 
 createApp(App).use(createPinia()).use(router).use(ElementPlus).mount('#app');

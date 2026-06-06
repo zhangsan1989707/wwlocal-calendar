@@ -9,13 +9,14 @@ export const useAppStore = defineStore('app', {
     calendars: [] as CalendarItem[],
     tags: [] as CalendarTag[],
     events: [] as EventItem[],
-    currentUserId: '' as string
+    currentUserId: localStorage.getItem('userId') || '' as string
   }),
   getters: {
     currentUser: (state) => state.users.find((item) => item.id === state.currentUserId)
   },
   actions: {
     async loadBase() {
+      this.currentUserId = localStorage.getItem('userId') || this.currentUserId
       try {
         const [users, departments, calendars, tags] = await Promise.all([
           api.get<User[]>('/users'),
@@ -38,14 +39,13 @@ export const useAppStore = defineStore('app', {
       }
     },
     async loadEvents(query = '') {
+      this.currentUserId = localStorage.getItem('userId') || this.currentUserId
       try {
-        // 后端已默认按当前用户过滤；显式传 currentUserId 以兼容非默认分支
-        const separator = query.includes('?') ? '&' : '?'
-        const userIdQuery = `userId=${encodeURIComponent(this.currentUserId)}`
-        const allUsersQuery = 'allUsers=true'
-        const finalQuery = query
-          ? `${query}&${userIdQuery}&${allUsersQuery}`
-          : `?${userIdQuery}&${allUsersQuery}`
+        const params = new URLSearchParams(query.startsWith('?') ? query.slice(1) : query)
+        if (this.currentUserId) {
+          params.set('userId', this.currentUserId)
+        }
+        const finalQuery = params.toString() ? `?${params.toString()}` : ''
         this.events = await api.get<EventItem[]>(`/events${finalQuery}`)
       } catch (err) {
         console.warn('loadEvents failed:', err)
