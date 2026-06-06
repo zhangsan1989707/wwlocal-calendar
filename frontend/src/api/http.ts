@@ -31,9 +31,13 @@ export async function request<T>(path: string, options: RequestInit = {}): Promi
 }
 
 export async function downloadFile(path: string, body?: unknown, filename?: string): Promise<void> {
+  const token = localStorage.getItem('token')
   const response = await fetch(`${API_BASE}${path}`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    },
     body: JSON.stringify(body ?? {})
   })
   if (!response.ok) {

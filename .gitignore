@@ -9,6 +9,8 @@ uploads/
 backups/
 exports/
 frontend/.env.local
+frontend/output/
+验收文档/
 backend/.env
 设计稿/
 需求清单/

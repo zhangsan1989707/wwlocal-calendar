@@ -216,29 +216,34 @@ const todos = ref<any[]>([])
 
 watch(() => props.modelValue, async (isVisible) => {
   if (isVisible && props.event?.id) {
-    try {
-      attachments.value = await api.get(`/events/${props.event.id}/attachments`)
-    } catch {
-      attachments.value = []
-    }
-    
-    try {
-      participants.value = await api.get(`/events/${props.event.id}/participants`)
-    } catch {
-      participants.value = []
-    }
-    
-    try {
-      todos.value = await api.get(`/events/${props.event.id}/todos`)
-    } catch {
-      todos.value = []
-    }
+    await loadEventDetail()
   } else {
     attachments.value = []
     participants.value = []
     todos.value = []
   }
 })
+
+async function loadEventDetail() {
+  if (!props.event?.id) return
+  try {
+    attachments.value = await api.get(`/events/${props.event.id}/attachments`)
+  } catch {
+    attachments.value = []
+  }
+
+  try {
+    participants.value = await api.get(`/events/${props.event.id}/participants`)
+  } catch {
+    participants.value = []
+  }
+
+  try {
+    todos.value = await api.get(`/events/${props.event.id}/todos`)
+  } catch {
+    todos.value = []
+  }
+}
 
 function formatFileSize(bytes: number): string {
   if (bytes < 1024) return bytes + ' B'
@@ -322,6 +327,7 @@ async function respond(status: string) {
   if (!props.event) return
   try {
     await api.post(`/events/${props.event.id}/respond`, { userId: props.currentUserId, status })
+    await loadEventDetail()
     ElMessage.success('回执已更新')
   } catch {
     ElMessage.error('回执更新失败')

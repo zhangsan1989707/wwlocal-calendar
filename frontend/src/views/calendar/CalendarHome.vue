@@ -93,7 +93,7 @@
                 {{ option.label }}
               </button>
             </div>
-            <el-button :icon="Download" @click="exportEvents" />
+            <el-button aria-label="导出日程" :icon="Download" @click="exportEvents" />
           </div>
         </div>
 
@@ -558,7 +558,8 @@ async function removeEvent(event: EventItem) {
         if (action === 'cancel') {
           // 仅删除本次
           if (event.id && !String(event.id).startsWith('local-')) {
-            await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
+            const originalStartAt = event.original_start_at || event.start_at
+            await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single&originalStartAt=${encodeURIComponent(originalStartAt)}`)
           }
           ElMessage.success('已删除')
         }
@@ -611,7 +612,7 @@ function eventsByDay(day: Date) {
     targetDay.setHours(0, 0, 0, 0)
     // 跨天日程：在 start 和 end（含）之间都显示
     return targetDay >= startDay && targetDay <= endDay
-  }).slice(0, 4)
+  })
 }
 
 function eventStyle(event: EventItem) {

@@ -57,6 +57,7 @@ export interface EventItem {
   recurrence_rule?: string
   is_recurrence_instance?: boolean
   recurrence_event_id?: number
+  original_start_at?: string
   total_participants?: number
   created_at?: string
   updated_at?: string

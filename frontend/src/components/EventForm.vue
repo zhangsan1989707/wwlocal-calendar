@@ -64,6 +64,7 @@
               <input
                 ref="fileInputRef"
                 type="file"
+                multiple
                 style="display: none"
                 @change="handleFileSelect"
               />
@@ -81,6 +82,19 @@
                     circle
                     size="small"
                     @click="deleteAttachment(attachment)"
+                  />
+                </div>
+              </div>
+              <div v-if="pendingAttachments.length" class="attachments-list">
+                <div v-for="attachment in pendingAttachments" :key="attachment.key" class="attachment-item pending">
+                  <span class="attachment-name">{{ attachment.file.name }}</span>
+                  <span class="attachment-size">待保存 · {{ formatFileSize(attachment.file.size) }}</span>
+                  <el-button
+                    type="danger"
+                    :icon="Delete"
+                    circle
+                    size="small"
+                    @click="removePendingAttachment(attachment.key)"
                   />
                 </div>
               </div>
@@ -287,6 +301,11 @@ interface Attachment {
   created_at: string
 }
 
+interface PendingAttachment {
+  key: string
+  file: File
+}
+
 const props = defineProps<{
   modelValue: boolean
   event?: EventItem | null
@@ -310,13 +329,14 @@ const visible = computed({
 })
 
 const isEditing = computed(() => !!props.event?.id)
-const isEditingRecurrence = computed(() => isEditing.value && !!props.event?.recurrence_rule)
+const isEditingRecurrence = computed(() => isEditing.value && (!!props.event?.recurrence_rule || !!props.event?.is_recurrence_instance))
 
 const form = reactive<Record<string, any>>({})
 const participantIds = ref<string[]>([])
 const departmentIds = ref<string[]>([])
 const todos = ref<Array<{ title: string; assigneeUserId?: string; priority: string; completed: boolean }>>([])
 const attachments = ref<Attachment[]>([])
+const pendingAttachments = ref<PendingAttachment[]>([])
 const fileInputRef = ref<HTMLInputElement | null>(null)
 const startDate = ref(new Date())
 const endDate = ref(new Date())
@@ -498,6 +518,7 @@ watch(
     editorUserIds.value = []
     todos.value = []
     attachments.value = []
+    pendingAttachments.value = []
     
     // 如果是编辑模式，加载附件和参与人
     if (props.event?.id) {
@@ -573,27 +594,36 @@ async function handleFileSelect(event: Event) {
   const target = event.target as HTMLInputElement
   const files = target.files
   if (!files || !files.length) return
-  
-  const file = files[0]
-  try {
-    const formData = new FormData()
-    formData.append('file', file)
-    if (form.id) {
-      formData.append('eventId', String(form.id))
-    }
-    formData.append('userId', props.currentUserId)
-    
-    const result = await uploadFile('/files/upload', formData)
-    attachments.value.push(result)
-    ElMessage.success('附件上传成功')
-  } catch {
-    ElMessage.error('附件上传失败')
-  } finally {
-    // 清空文件输入，以便可以再次选择相同的文件
-    if (target) {
-      target.value = ''
-    }
+
+  for (const file of Array.from(files)) {
+    pendingAttachments.value.push({
+      key: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+      file
+    })
   }
+  ElMessage.success(files.length > 1 ? `已添加 ${files.length} 个附件，保存日程后上传` : '已添加附件，保存日程后上传')
+  if (target) {
+    target.value = ''
+  }
+}
+
+function removePendingAttachment(key: string) {
+  pendingAttachments.value = pendingAttachments.value.filter((item) => item.key !== key)
+}
+
+async function uploadPendingAttachments(eventId: number | string) {
+  if (!pendingAttachments.value.length) return
+  const uploaded: Attachment[] = []
+  for (const attachment of pendingAttachments.value) {
+    const formData = new FormData()
+    formData.append('file', attachment.file)
+    formData.append('eventId', String(eventId))
+    formData.append('userId', props.currentUserId)
+    const result = await uploadFile('/files/upload', formData)
+    uploaded.push(result)
+  }
+  attachments.value.push(...uploaded)
+  pendingAttachments.value = []
 }
 
 async function deleteAttachment(attachment: Attachment) {
@@ -717,7 +747,7 @@ async function submit() {
     occurrence_count: form.occurrence_count || undefined,
     editSingle: isEditingRecurrence.value && editScope.value === 'single',
     originalStartAt: isEditingRecurrence.value && editScope.value === 'single'
-      ? (props.event?.start_at ?? undefined)
+      ? (props.event?.original_start_at ?? props.event?.start_at ?? undefined)
       : undefined,
     notifyParticipants: isEditing.value && notifyParticipants.value,
     overrideReminder: isEditingRecurrence.value && editScope.value === 'single' && overrideReminder.value,
@@ -726,11 +756,14 @@ async function submit() {
       : undefined
   }
   try {
+    let savedEvent: any
     if (form.id) {
-      await api.put(`/events/${form.id}`, payload)
+      savedEvent = await api.put(`/events/${form.id}`, payload)
     } else {
-      await api.post('/events', payload)
+      savedEvent = await api.post('/events', payload)
     }
+    const savedEventId = savedEvent?.id ?? form.id
+    await uploadPendingAttachments(savedEventId)
     ElMessage.success('已保存')
     visible.value = false
     emit('saved')

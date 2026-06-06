@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test'
 
+const baseURL = process.env.PLAYWRIGHT_BASE_URL || 'http://localhost:3007'
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 60000,
@@ -11,7 +13,7 @@ export default defineConfig({
     ['json', { outputFile: 'playwright-report/test-results.json' }]
   ],
   use: {
-    baseURL: 'http://localhost:3007',
+    baseURL,
     trace: 'on',
     screenshot: 'on',
     video: 'retain-on-failure'
@@ -25,7 +27,7 @@ export default defineConfig({
       }
     }
   ],
-  webServer: {
+  webServer: process.env.PLAYWRIGHT_BASE_URL ? undefined : {
     command: 'npm run dev',
     port: 3007,
     reuseExistingServer: true,

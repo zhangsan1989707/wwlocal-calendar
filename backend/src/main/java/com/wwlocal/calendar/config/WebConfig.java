@@ -2,6 +2,7 @@ package com.wwlocal.calendar.config;
 
 import com.wwlocal.calendar.security.AuthInterceptor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -9,9 +10,24 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 public class WebConfig implements WebMvcConfigurer {
 
     private final AuthInterceptor authInterceptor;
+    private final AppProperties appProperties;
 
-    public WebConfig(AuthInterceptor authInterceptor) {
+    public WebConfig(AuthInterceptor authInterceptor, AppProperties appProperties) {
         this.authInterceptor = authInterceptor;
+        this.appProperties = appProperties;
+    }
+
+    @Override
+    public void addCorsMappings(CorsRegistry registry) {
+        var origins = appProperties.allowedOrigins();
+        if (origins == null || origins.isEmpty()) {
+            return;
+        }
+        registry.addMapping("/api/**")
+                .allowedOrigins(origins.toArray(String[]::new))
+                .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
+                .allowedHeaders("*")
+                .exposedHeaders("Content-Disposition");
     }
 
     @Override
