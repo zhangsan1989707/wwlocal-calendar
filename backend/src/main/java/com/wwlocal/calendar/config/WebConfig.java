@@ -1,24 +1,24 @@
 package com.wwlocal.calendar.config;
 
-import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import com.wwlocal.calendar.security.AuthInterceptor;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 @Configuration
-@EnableConfigurationProperties(AppProperties.class)
 public class WebConfig implements WebMvcConfigurer {
-  private final AppProperties properties;
 
-  public WebConfig(AppProperties properties) {
-    this.properties = properties;
-  }
+    private final AuthInterceptor authInterceptor;
 
-  @Override
-  public void addCorsMappings(CorsRegistry registry) {
-    registry.addMapping("/api/**")
-        .allowedOrigins(properties.allowedOrigins().toArray(String[]::new))
-        .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
-        .allowedHeaders("*");
-  }
+    public WebConfig(AuthInterceptor authInterceptor) {
+        this.authInterceptor = authInterceptor;
+    }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(authInterceptor)
+                .addPathPatterns("/api/**")
+                .excludePathPatterns("/api/auth/**", "/api/health")
+                .order(1);
+    }
 }

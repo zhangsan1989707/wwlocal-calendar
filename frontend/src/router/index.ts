@@ -5,11 +5,13 @@ import AdminLayout from '@/views/admin/AdminLayout.vue';
 import AdminHome from '@/views/admin/AdminHome.vue';
 import AdminTablePage from '@/views/admin/AdminTablePage.vue';
 import AllCalendars from '@/views/admin/AllCalendars.vue';
+import LoginPage from '@/pages/auth/LoginPage.vue';
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
     { path: '/', redirect: '/calendar' },
+    { path: '/login', component: LoginPage, meta: { public: true } },
     { path: '/calendar', component: CalendarHome },
     { path: '/calendar/search', component: CalendarSearch },
     {
@@ -30,6 +32,16 @@ const router = createRouter({
       ]
     }
   ]
+});
+
+// 路由守卫：未登录跳转到登录页
+router.beforeEach((to, _from, next) => {
+  const token = localStorage.getItem('token');
+  if (to.meta.public || token) {
+    next();
+  } else {
+    next('/login');
+  }
 });
 
 export default router;

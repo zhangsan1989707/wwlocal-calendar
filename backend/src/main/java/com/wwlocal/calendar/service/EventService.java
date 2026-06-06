@@ -31,11 +31,13 @@ public class EventService {
   private final JdbcTemplate jdbc;
   private final CrudService crud;
   private final AuditService audit;
+  private final NotificationService notificationService;
 
-  public EventService(JdbcTemplate jdbc, CrudService crud, AuditService audit) {
+  public EventService(JdbcTemplate jdbc, CrudService crud, AuditService audit, NotificationService notificationService) {
     this.jdbc = jdbc;
     this.crud = crud;
     this.audit = audit;
+    this.notificationService = notificationService;
   }
 
   // Event table columns used in search SELECT — must match database/init.sql event table
@@ -244,6 +246,7 @@ public class EventService {
       var recExceptions = exceptionMap.get(((Number) recurrence.get("id")).longValue());
       var cancelledDates = new java.util.HashSet<LocalDate>();
       var movedDates = new HashMap<LocalDate, LocalDateTime[]>();
+      var exceptionData = new HashMap<LocalDate, Map<String, Object>>();
 
       if (recExceptions != null) {
         for (var ex : recExceptions) {
@@ -255,6 +258,7 @@ public class EventService {
             var newStart = toLocalDateTime(ex.get("new_start_at"));
             var newEnd = toLocalDateTime(ex.get("new_end_at"));
             movedDates.put(origStart, new LocalDateTime[]{newStart, newEnd});
+            exceptionData.put(origStart, ex);
           }
         }
       }
@@ -277,12 +281,33 @@ public class EventService {
           continue;
         }
 
-        // 创建展开后的实例（复制原始 event 数据，替换时间）
+        // 创建展开后的实例
         var instance = new LinkedHashMap<>(event);
         instance.put("start_at", Timestamp.valueOf(instanceStart));
         instance.put("end_at", Timestamp.valueOf(instanceEnd));
         instance.put("is_recurrence_instance", true);
         instance.put("recurrence_event_id", eventId);
+
+        // 应用单次修改的 modified_data 和 reminder_override
+        var exData = exceptionData.get(instanceDate);
+        if (exData != null) {
+          var modifiedData = exData.get("modified_data");
+          if (modifiedData != null) {
+            try {
+              @SuppressWarnings("unchecked")
+              var modMap = new com.fasterxml.jackson.databind.ObjectMapper().readValue(
+                  String.valueOf(modifiedData), Map.class);
+              for (var key : modMap.keySet()) {
+                instance.put(key, modMap.get(key));
+              }
+            } catch (Exception ignored) {}
+          }
+          var reminderOverride = exData.get("reminder_override");
+          if (reminderOverride != null) {
+            instance.put("reminder_override", reminderOverride);
+          }
+        }
+
         result.add(instance);
       }
     }
@@ -478,22 +503,79 @@ public class EventService {
     coerceTimestamp(payload, "end_at");
 
     Map<String, Object> event;
+    boolean editSingle = Boolean.TRUE.equals(payload.get("editSingle"));
+    
     if (payload.containsKey("id") && payload.get("id") != null) {
       long id = ((Number) payload.get("id")).longValue();
       
-      // 检查权限：只有发起人可以编辑
+      // 检查权限：只有发起人或可编辑成员可以编辑
       var operatorUserId = payload.get("operatorUserId");
       if (operatorUserId != null) {
         var existingEvent = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
         if (!existingEvent.isEmpty()) {
-          var organizerId = existingEvent.get(0).get("organizer_user_id");
-          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-            throw new SecurityException("只有发起人可以编辑此日程");
+          var organizerId = String.valueOf(existingEvent.get(0).get("organizer_user_id"));
+          var opId = String.valueOf(operatorUserId);
+          if (!opId.equals(organizerId)) {
+            // 检查是否是可编辑的参与人
+            var editorCount = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM event_participant WHERE event_id = ? AND user_id = ? AND role = 'EDITOR'",
+                Integer.class, id, opId);
+            if (editorCount == null || editorCount == 0) {
+              throw new SecurityException("只有发起人或授权成员可以编辑此日程");
+            }
           }
         }
       }
-      
-      event = crud.update("event", COLUMNS, id, payload);
+
+      // 如果是编辑单次重复实例，创建 event_exception
+      if (editSingle && payload.get("originalStartAt") != null) {
+        var originalStartAt = String.valueOf(payload.get("originalStartAt"));
+        var recurrenceRow = jdbc.queryForList(
+            "SELECT er.id AS recurrence_id FROM event_recurrence er WHERE er.event_id = ?", id);
+        if (!recurrenceRow.isEmpty()) {
+          long recurrenceId = ((Number) recurrenceRow.get(0).get("recurrence_id")).longValue();
+          
+          // 构建 modified_data JSON
+          var modifiedData = new LinkedHashMap<String, Object>();
+          if (payload.get("title") != null) modifiedData.put("title", payload.get("title"));
+          if (payload.get("location") != null) modifiedData.put("location", payload.get("location"));
+          if (payload.get("description") != null) modifiedData.put("description", payload.get("description"));
+          
+          String modifiedJson = null;
+          if (!modifiedData.isEmpty()) {
+            try {
+              modifiedJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(modifiedData);
+            } catch (Exception ignored) {}
+          }
+
+          // 构建 reminder_override JSON
+          String reminderOverrideJson = null;
+          if (Boolean.TRUE.equals(payload.get("overrideReminder"))) {
+            var reminderOverride = new LinkedHashMap<String, Object>();
+            reminderOverride.put("minutes_before", payload.get("reminderOverrideMinutes"));
+            try {
+              reminderOverrideJson = new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(reminderOverride);
+            } catch (Exception ignored) {}
+          }
+
+          // Upsert event_exception
+          jdbc.update("DELETE FROM event_exception WHERE recurrence_id = ? AND original_start_at = ?::timestamptz",
+              recurrenceId, originalStartAt);
+          
+          jdbc.update(
+              "INSERT INTO event_exception(recurrence_id, original_start_at, exception_type, new_start_at, new_end_at, modified_data, reminder_override, reason) VALUES (?, ?::timestamptz, 'MOVED', ?::timestamptz, ?::timestamptz, ?::jsonb, ?::jsonb, ?)",
+              recurrenceId, originalStartAt,
+              payload.get("start_at"), payload.get("end_at"),
+              modifiedJson, reminderOverrideJson, "单次修改");
+          
+          // 仍然更新主 event（作为模板）
+          event = crud.update("event", COLUMNS, id, payload);
+        } else {
+          event = crud.update("event", COLUMNS, id, payload);
+        }
+      } else {
+        event = crud.update("event", COLUMNS, id, payload);
+      }
     } else {
       event = crud.create("event", COLUMNS, payload);
     }
@@ -504,6 +586,16 @@ public class EventService {
     replaceParticipants(eventId, payload);
     replaceTodos(eventId, payload);
     replaceRecurrence(eventId, payload);
+
+    // 发送通知：如果是更新已有日程，通知参与人
+    if (payload.containsKey("id") && payload.get("id") != null) {
+      var notifyParticipants = Boolean.TRUE.equals(payload.get("notifyParticipants"));
+      if (notifyParticipants) {
+        var eventTitle = String.valueOf(payload.getOrDefault("title", "日程"));
+        var organizerUserId = String.valueOf(payload.getOrDefault("operatorUserId", ""));
+        notificationService.notifyEventUpdate(eventId, organizerUserId, eventTitle);
+      }
+    }
 
     return event;
   }
@@ -537,21 +629,51 @@ public class EventService {
   }
 
   /**
-   * Delete existing participants for the event, then insert from the participantIds array in payload.
+   * Delete existing participants for the event, then insert from the participantIds and departmentIds arrays in payload.
    */
   private void replaceParticipants(long eventId, Map<String, Object> payload) {
     jdbc.update("DELETE FROM event_participant WHERE event_id = ?", eventId);
 
     @SuppressWarnings("unchecked")
     var participantIds = (List<String>) payload.get("participantIds");
-    if (participantIds == null || participantIds.isEmpty()) {
-      return;
+    @SuppressWarnings("unchecked")
+    var departmentIds = (List<String>) payload.get("departmentIds");
+
+    if (participantIds != null) {
+      @SuppressWarnings("unchecked")
+      var editorUserIds = (List<String>) payload.get("editorUserIds");
+      var editorSet = editorUserIds != null ? new java.util.HashSet<>(editorUserIds) : java.util.Collections.<String>emptySet();
+      
+      for (var pid : participantIds) {
+        if (pid == null || pid.isBlank()) continue;
+        var role = editorSet.contains(String.valueOf(pid)) ? "EDITOR" : "VIEWER";
+        jdbc.update(
+            "INSERT INTO event_participant(event_id, user_id, response_status, role) VALUES (?, ?, 'NEEDS_ACTION', ?)",
+            eventId, String.valueOf(pid), role
+        );
+      }
     }
-    for (var pid : participantIds) {
-      jdbc.update(
-          "INSERT INTO event_participant(event_id, user_id, response_status) VALUES (?, ?, 'NEEDS_ACTION')",
-          eventId, String.valueOf(pid)
-      );
+
+    if (departmentIds != null) {
+      for (var did : departmentIds) {
+        if (did == null || did.isBlank()) continue;
+        jdbc.update(
+            "INSERT INTO event_participant(event_id, department_id, response_status) VALUES (?, ?, 'NEEDS_ACTION')",
+            eventId, String.valueOf(did)
+        );
+      }
+    }
+
+    @SuppressWarnings("unchecked")
+    var externalContactIds = (List<String>) payload.get("externalContactIds");
+    if (externalContactIds != null) {
+      for (var eid : externalContactIds) {
+        if (eid == null || eid.isBlank()) continue;
+        jdbc.update(
+            "INSERT INTO event_participant(event_id, external_contact_id, response_status) VALUES (?, ?, 'NEEDS_ACTION')",
+            eventId, Long.parseLong(eid)
+        );
+      }
     }
   }
 
@@ -607,34 +729,12 @@ public class EventService {
 
   /**
    * Remove (cancel) an event. 
-   * scope=single: soft-delete single event (status = CANCELLED).
+   * scope=single: for non-recurring events, soft-delete (status = CANCELLED);
+   *               for recurring instances, create event_exception(CANCELLED).
    * scope=series: cancel the entire recurrence series.
    */
   public void remove(long id, String operatorUserId, String scope) {
-    if ("series".equals(scope)) {
-      // 删除整个重复系列：取消主事件
-      if (operatorUserId != null) {
-        var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
-        if (!event.isEmpty()) {
-          var organizerId = event.get(0).get("organizer_user_id");
-          if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
-            throw new SecurityException("只有发起人可以删除此日程");
-          }
-        }
-      }
-      jdbc.update("DELETE FROM event_recurrence WHERE event_id = ?", id);
-      jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
-      if (operatorUserId != null) {
-        audit.record(operatorUserId, "event", "cancel_series", "event", id, "整个重复系列已取消");
-      }
-      return;
-    }
-
-    if (!"single".equals(scope)) {
-      throw new UnsupportedOperationException("series delete not implemented");
-    }
-    
-    // 检查权限：只有发起人可以删除
+    // 权限检查
     if (operatorUserId != null) {
       var event = jdbc.queryForList("SELECT organizer_user_id FROM event WHERE id = ?", id);
       if (!event.isEmpty()) {
@@ -644,11 +744,51 @@ public class EventService {
         }
       }
     }
-    
-    jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
-    if (operatorUserId != null) {
-      audit.record(operatorUserId, "event", "cancel", "event", id, "单次取消事件");
+
+    if ("series".equals(scope)) {
+      // 删除整个重复系列：取消主事件
+      jdbc.update("DELETE FROM event_recurrence WHERE event_id = ?", id);
+      jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
+      if (operatorUserId != null) {
+        audit.record(operatorUserId, "event", "cancel_series", "event", id, "整个重复系列已取消");
+      }
+      return;
     }
+
+    if ("single".equals(scope)) {
+      // 检查是否是重复日程的展开实例
+      var eventRow = jdbc.queryForList("SELECT e.id, e.start_at, er.id AS recurrence_id FROM event e LEFT JOIN event_recurrence er ON er.event_id = e.id WHERE e.id = ?", id);
+      if (eventRow.isEmpty()) {
+        return;
+      }
+      var eventData = eventRow.get(0);
+      var recurrenceId = eventData.get("recurrence_id");
+
+      if (recurrenceId != null) {
+        // 这是重复日程：创建 event_exception(CANCELLED) 来取消单次
+        var originalStartAt = eventData.get("start_at");
+        var existingExceptions = jdbc.queryForList(
+            "SELECT id FROM event_exception WHERE recurrence_id = ? AND original_start_at = ?",
+            ((Number) recurrenceId).longValue(), originalStartAt);
+        if (existingExceptions.isEmpty()) {
+          jdbc.update(
+              "INSERT INTO event_exception(recurrence_id, original_start_at, exception_type, reason) VALUES (?, ?, 'CANCELLED', ?)",
+              ((Number) recurrenceId).longValue(), originalStartAt, "用户手动取消单次");
+        }
+        if (operatorUserId != null) {
+          audit.record(operatorUserId, "event", "cancel_single", "event_exception", id, "取消单次重复日程实例");
+        }
+      } else {
+        // 非重复日程：直接软删除
+        jdbc.update("UPDATE event SET status = 'CANCELLED', updated_at = now() WHERE id = ?", id);
+        if (operatorUserId != null) {
+          audit.record(operatorUserId, "event", "cancel", "event", id, "单次取消事件");
+        }
+      }
+      return;
+    }
+
+    throw new UnsupportedOperationException("不支持的删除范围: " + scope);
   }
 
   /**

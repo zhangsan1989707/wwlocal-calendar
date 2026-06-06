@@ -6,10 +6,23 @@
         <el-input v-model="form.title" class="title-input" maxlength="100" placeholder="日程、活动主题" />
 
         <el-form :model="form" label-width="74px" class="compact-form">
-          <el-form-item label="参与人">
-            <el-select v-model="participantIds" multiple filterable placeholder="添加联系人">
-              <el-option v-for="item in users" :key="item.id" :label="item.name" :value="item.id" />
+          <el-form-item label="参会人">
+            <el-select v-model="participantIds" multiple filterable placeholder="添加内部成员">
+              <el-option v-for="item in users" :key="item.id" :label="item.name" :value="String(item.id)" />
             </el-select>
+          </el-form-item>
+          <el-form-item v-if="participantIds.length > 0" label="可编辑">
+            <el-select v-model="editorUserIds" multiple filterable placeholder="选择可编辑日程的成员">
+              <el-option v-for="pid in participantIds" :key="pid" :label="getUserName(pid)" :value="pid" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="外部联系人">
+            <div style="display: flex; gap: 8px; align-items: flex-start;">
+              <el-select v-model="externalContactIds" multiple filterable placeholder="添加外部联系人" style="flex:1">
+                <el-option v-for="item in externalContacts" :key="item.id" :label="`${item.name} (${item.company || item.contact_type})`" :value="String(item.id)" />
+              </el-select>
+              <el-button type="success" size="small" @click="showAddExternalContact = true">+ 新增</el-button>
+            </div>
           </el-form-item>
           <el-form-item label="开始" required>
             <div class="inline-fields">
@@ -30,6 +43,16 @@
               <el-option label="1小时" value="1小时" />
               <el-option label="2小时" value="2小时" />
               <el-option label="自定义" value="自定义" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="时区">
+            <el-select v-model="form.timezone" filterable placeholder="选择时区">
+              <el-option v-for="tz in timezoneOptions" :key="tz.value" :label="tz.label" :value="tz.value" />
+            </el-select>
+          </el-form-item>
+          <el-form-item label="参与部门">
+            <el-select v-model="departmentIds" multiple filterable placeholder="添加部门（可选）">
+              <el-option v-for="item in departments" :key="item.id" :label="item.name" :value="item.id" />
             </el-select>
           </el-form-item>
           <el-form-item label="地点">
@@ -123,6 +146,29 @@
               <el-option label="每年" value="FREQ=YEARLY;INTERVAL=1" />
             </el-select>
           </el-form-item>
+          <el-form-item v-if="isEditingRecurrence && editScope === 'single'" label="提醒">
+            <el-radio-group v-model="overrideReminder">
+              <el-radio :label="false">继承原系列提醒</el-radio>
+              <el-radio :label="true">自定义本次提醒</el-radio>
+            </el-radio-group>
+          </el-form-item>
+          <el-form-item v-if="isEditingRecurrence && editScope === 'single' && overrideReminder" label="提醒档位">
+            <el-select v-model="reminderLabel">
+              <el-option label="不提醒" value="不提醒" />
+              <el-option label="即时" value="即时" />
+              <el-option label="5分钟前" value="5分钟前" />
+              <el-option label="15分钟前" value="15分钟前" />
+              <el-option label="30分钟前" value="30分钟前" />
+              <el-option label="1小时前" value="1小时前" />
+              <el-option label="1天前" value="1天前" />
+            </el-select>
+          </el-form-item>
+          <el-form-item v-if="isEditingRecurrence" label="修改范围">
+            <el-radio-group v-model="editScope">
+              <el-radio value="single">仅修改本次</el-radio>
+              <el-radio value="series">修改全系列</el-radio>
+            </el-radio-group>
+          </el-form-item>
           <el-form-item v-if="form.recurrence_rule" label="结束日期">
             <el-date-picker v-model="form.recurrence_end" type="date" placeholder="永不结束" clearable format="YYYY-MM-DD" value-format="YYYY-MM-DDTHH:mm:ss" />
           </el-form-item>
@@ -160,11 +206,43 @@
     </div>
     <template #footer>
       <div class="event-footer">
+        <el-checkbox v-if="isEditing" v-model="notifyParticipants" style="margin-right: auto; float: left; line-height: 32px;">
+          保存并通知全部参会人
+        </el-checkbox>
         <el-button @click="visible = false">取消</el-button>
         <el-button type="primary" @click="submit">保存日程</el-button>
       </div>
     </template>
   </el-dialog>
+
+    <!-- 新增外部联系人弹窗 -->
+    <el-dialog v-model="showAddExternalContact" title="新增外部联系人" width="400px" append-to-body>
+      <el-form :model="newExternalContact" label-width="80px">
+        <el-form-item label="姓名" required>
+          <el-input v-model="newExternalContact.name" placeholder="请输入姓名" />
+        </el-form-item>
+        <el-form-item label="类型">
+          <el-select v-model="newExternalContact.contact_type">
+            <el-option label="微信联系人" value="wechat" />
+            <el-option label="客户" value="client" />
+            <el-option label="合作方" value="partner" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="公司">
+          <el-input v-model="newExternalContact.company" placeholder="请输入公司名称" />
+        </el-form-item>
+        <el-form-item label="邮箱">
+          <el-input v-model="newExternalContact.email" placeholder="请输入邮箱" />
+        </el-form-item>
+        <el-form-item label="电话">
+          <el-input v-model="newExternalContact.phone" placeholder="请输入电话" />
+        </el-form-item>
+      </el-form>
+      <template #footer>
+        <el-button @click="showAddExternalContact = false">取消</el-button>
+        <el-button type="primary" @click="createExternalContact" :loading="savingExternalContact">保存</el-button>
+      </template>
+    </el-dialog>
 </template>
 
 <script setup lang="ts">
@@ -189,6 +267,7 @@ const props = defineProps<{
   calendars: CalendarItem[]
   users: User[]
   tags: CalendarTag[]
+  departments: Array<{ id: string; name: string }>
   currentUserId: string
   initialStart?: Date | null
   initialEnd?: Date | null
@@ -204,8 +283,12 @@ const visible = computed({
   set: (value) => emit('update:modelValue', value)
 })
 
+const isEditing = computed(() => !!props.event?.id)
+const isEditingRecurrence = computed(() => isEditing.value && !!props.event?.recurrence_rule)
+
 const form = reactive<Record<string, any>>({})
 const participantIds = ref<string[]>([])
+const departmentIds = ref<string[]>([])
 const todos = ref<Array<{ title: string; assigneeUserId?: string; priority: string; completed: boolean }>>([])
 const attachments = ref<Attachment[]>([])
 const fileInputRef = ref<HTMLInputElement | null>(null)
@@ -215,7 +298,34 @@ const startTime = ref('11:30')
 const endTime = ref('12:30')
 const durationLabel = ref('1小时')
 const reminderLabel = ref('15分钟前')
+const editScope = ref<'single' | 'series'>('series')
+const notifyParticipants = ref(true)
+const overrideReminder = ref(false)
+const externalContacts = ref<Array<{ id: number; name: string; company: string; contact_type: string; email: string; phone: string }>>([])
+const externalContactIds = ref<string[]>([])
+const editorUserIds = ref<string[]>([])
+const showAddExternalContact = ref(false)
+const savingExternalContact = ref(false)
+const newExternalContact = reactive({
+  name: '',
+  contact_type: 'wechat',
+  company: '',
+  email: '',
+  phone: ''
+})
 const availabilityHours = Array.from({ length: 13 }, (_, index) => index + 5)
+const timezoneOptions = [
+  { label: '北京时间 (UTC+8)', value: 'Asia/Shanghai' },
+  { label: '东京 (UTC+9)', value: 'Asia/Tokyo' },
+  { label: '首尔 (UTC+9)', value: 'Asia/Seoul' },
+  { label: '新加坡 (UTC+8)', value: 'Asia/Singapore' },
+  { label: '纽约 (UTC-5)', value: 'America/New_York' },
+  { label: '洛杉矶 (UTC-8)', value: 'America/Los_Angeles' },
+  { label: '伦敦 (UTC+0)', value: 'Europe/London' },
+  { label: '巴黎 (UTC+1)', value: 'Europe/Paris' },
+  { label: '悉尼 (UTC+10)', value: 'Australia/Sydney' },
+  { label: '迪拜 (UTC+4)', value: 'Asia/Dubai' }
+]
 const availabilityTitle = computed(() => {
   const date = startDate.value
   return `${date.getMonth() + 1}月${date.getDate()}日 周${'日一二三四五六'[date.getDay()]}`
@@ -265,6 +375,40 @@ function slotStyle(slot: BusySlot) {
 }
 
 // Fetch busy slots when participants change
+function getUserName(userId: string): string {
+  return props.users.find(u => String(u.id) === String(userId))?.name || `用户${userId}`
+}
+
+async function fetchExternalContacts() {
+  try {
+    const res = await api.get<any[]>('/external-contacts')
+    externalContacts.value = res
+  } catch { /* ignore */ }
+}
+
+async function createExternalContact() {
+  if (!newExternalContact.name.trim()) {
+    ElMessage.warning('请输入姓名')
+    return
+  }
+  savingExternalContact.value = true
+  try {
+    const res = await api.post<any>('/external-contacts', {
+      ...newExternalContact,
+      created_by: props.currentUserId
+    })
+    externalContacts.value.push(res)
+    externalContactIds.value.push(String(res.id))
+    showAddExternalContact.value = false
+    Object.assign(newExternalContact, { name: '', contact_type: 'wechat', company: '', email: '', phone: '' })
+    ElMessage.success('外部联系人已添加')
+  } catch {
+    ElMessage.error('添加失败')
+  } finally {
+    savingExternalContact.value = false
+  }
+}
+
 async function fetchBusySlots() {
   const ids = [...participantIds.value]
   if (!ids.length) {
@@ -295,7 +439,9 @@ watch(startDate, () => {
 
 watch(
   () => props.modelValue,
-  async () => {
+  async (val) => {
+    if (!val) return
+    fetchExternalContacts()
     const firstCalendar = props.calendars[0]
     Object.assign(form, {
       id: props.event?.id,
@@ -306,6 +452,7 @@ watch(
       description: props.event?.description ?? '',
       tag_id: props.event?.tag_id ?? undefined,
       all_day: props.event?.all_day ?? false,
+      timezone: props.event?.timezone ?? 'Asia/Shanghai',
       recurrence_rule: props.event?.recurrence_rule ?? '',
       status: 'ACTIVE'
     })
@@ -318,6 +465,9 @@ watch(
     startTime.value = formatTime(start)
     endTime.value = formatTime(end)
     participantIds.value = []
+    departmentIds.value = []
+    externalContactIds.value = []
+    editorUserIds.value = []
     todos.value = []
     attachments.value = []
     
@@ -333,6 +483,15 @@ watch(
         const participants = await api.get<any[]>(`/events/${props.event.id}/participants`)
         participantIds.value = participants
           .filter((p: any) => p.user_id)
+          .map((p: any) => String(p.user_id))
+        departmentIds.value = participants
+          .filter((p: any) => p.department_id)
+          .map((p: any) => String(p.department_id))
+        externalContactIds.value = participants
+          .filter((p: any) => p.external_contact_id)
+          .map((p: any) => String(p.external_contact_id))
+        editorUserIds.value = participants
+          .filter((p: any) => p.role === 'EDITOR' && p.user_id)
           .map((p: any) => String(p.user_id))
       } catch {
         // 忽略错误
@@ -482,17 +641,37 @@ async function submit() {
     }
   }
 
+  function reminderMinutes(): number {
+    if (reminderLabelVal === '即时') return 0
+    if (reminderLabelVal === '1小时前') return 60
+    if (reminderLabelVal === '1天前') return 1440
+    const match = reminderLabelVal.match(/^(\d+)/)
+    return match ? parseInt(match[1]) : 15
+  }
+
   const payload = {
     ...form,
     start_at: start.toISOString(),
     end_at: end.toISOString(),
     participantIds: participantIds.value,
+    externalContactIds: externalContactIds.value,
+    editorUserIds: editorUserIds.value,
+    departmentIds: departmentIds.value,
     reminders: reminders,
     todos: todos.value.filter((item) => item.title),
     operatorUserId: props.currentUserId,
     rrule: form.recurrence_rule || undefined,
     recurrence_end: form.recurrence_end || undefined,
-    occurrence_count: form.occurrence_count || undefined
+    occurrence_count: form.occurrence_count || undefined,
+    editSingle: isEditingRecurrence.value && editScope.value === 'single',
+    originalStartAt: isEditingRecurrence.value && editScope.value === 'single'
+      ? (props.event?.start_at ?? undefined)
+      : undefined,
+    notifyParticipants: isEditing.value && notifyParticipants.value,
+    overrideReminder: isEditingRecurrence.value && editScope.value === 'single' && overrideReminder.value,
+    reminderOverrideMinutes: isEditingRecurrence.value && editScope.value === 'single' && overrideReminder.value
+      ? reminderMinutes()
+      : undefined
   }
   try {
     if (form.id) {

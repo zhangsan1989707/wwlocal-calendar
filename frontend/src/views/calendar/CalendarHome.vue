@@ -11,6 +11,15 @@
         </svg>
         <strong>日程</strong>
       </div>
+      <div class="header-actions">
+        <el-badge :value="unreadCount" :hidden="unreadCount === 0" :max="99">
+          <el-button text @click="showNotifications = true">
+            <el-icon :size="18"><Bell /></el-icon>
+          </el-button>
+        </el-badge>
+        <span class="header-user">{{ authStore.state.displayName || authStore.state.username }}</span>
+        <el-button text size="small" @click="handleLogout">退出</el-button>
+      </div>
     </header>
 
     <main class="calendar-workspace desktop-calendar">
@@ -335,6 +344,7 @@
       :calendars="formCalendars"
       :users="store.users"
       :tags="store.tags"
+      :departments="store.departments"
       :currentUserId="store.currentUserId"
       :initial-start="createStart"
       :initial-end="createEnd"
@@ -347,18 +357,37 @@
       @edit="editEvent"
       @remove="removeEvent"
     />
+
+    <!-- 通知弹窗 -->
+    <el-dialog v-model="showNotifications" title="通知" width="400px" append-to-body>
+      <div v-if="notifications.length === 0" style="text-align: center; color: #999; padding: 20px;">
+        暂无通知
+      </div>
+      <div v-for="n in notifications" :key="n.id" class="notification-item" :class="{ unread: !n.is_read }">
+        <div class="notification-title">{{ n.title }}</div>
+        <div class="notification-message">{{ n.message }}</div>
+        <div class="notification-time">{{ formatTimeString(n.created_at) }}</div>
+      </div>
+      <template #footer>
+        <el-button v-if="unreadCount > 0" type="primary" @click="markAllRead" size="small">全部已读</el-button>
+        <el-button @click="showNotifications = false">关闭</el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Calendar, Download, Plus, Search, Setting } from '@element-plus/icons-vue'
+import { ArrowDown, ArrowLeft, ArrowRight, ArrowUp, Bell, Calendar, Download, Plus, Search, Setting } from '@element-plus/icons-vue'
 import EventDetail from '../../components/EventDetail.vue'
 import EventForm from '../../components/EventForm.vue'
 import { api, downloadFile } from '../../api/http'
 import type { CalendarItem, EventItem } from '../../api/types'
+import { useCalendarStore } from '../../stores/calendar'
 import { useAppStore } from '../../stores/app'
+import { useAuthStore } from '../../stores/auth'
+import { useRouter } from 'vue-router'
 
 type CalendarDay = {
   key: string
@@ -367,6 +396,8 @@ type CalendarDay = {
 }
 
 const store = useAppStore()
+const authStore = useAuthStore()
+const router = useRouter()
 const today = new Date()
 const selectedDate = ref(new Date(2026, 5, 5))
 const view = ref('month')
@@ -389,6 +420,9 @@ const createEnd = ref<Date | null>(null)
 const mobileSettingsVisible = ref(false)
 const mobileCalendarSheetVisible = ref(false)
 const mobileViewMode = ref<'day' | 'three' | 'week'>('day')
+const showNotifications = ref(false)
+const unreadCount = ref(0)
+const notifications = ref<any[]>([])
 
 const displayCalendars = computed(() => store.calendars)
 const formCalendars = computed(() => displayCalendars.value)
@@ -433,6 +467,7 @@ onMounted(async () => {
   await store.loadBase()
   visibleCalendarIds.value = displayCalendars.value.map((item) => item.id)
   await reload()
+  fetchNotifications()
 })
 
 watch(selectedDate, reload)
@@ -442,6 +477,34 @@ watch(displayCalendars, (items) => {
 
 async function reload() {
   await store.loadEvents('')
+  await fetchNotifications()
+}
+
+async function fetchNotifications() {
+  try {
+    const res = await api.get<{ notifications: any[]; unreadCount: number }>('/notifications?limit=20')
+    notifications.value = res.notifications || []
+    unreadCount.value = res.unreadCount || 0
+  } catch { /* ignore */ }
+}
+
+async function handleLogout() {
+  authStore.logout()
+  router.push('/login')
+}
+
+async function markAllRead() {
+  try {
+    await api.put('/notifications/read-all')
+    unreadCount.value = 0
+    notifications.value = notifications.value.map(n => ({ ...n, is_read: true }))
+  } catch { /* ignore */ }
+}
+
+function formatTimeString(ts: string): string {
+  if (!ts) return ''
+  const d = new Date(ts)
+  return d.toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 function openCreate(date = selectedDate.value, hour?: number) {
@@ -615,6 +678,44 @@ async function exportEvents() {
   font-size: 17px;
   font-weight: 700;
   letter-spacing: -0.01em;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-user {
+  font-size: 13px;
+  color: #666;
+}
+
+.notification-item {
+  padding: 12px;
+  border-bottom: 1px solid #eee;
+  cursor: pointer;
+}
+
+.notification-item.unread {
+  background: #f0f7ff;
+}
+
+.notification-title {
+  font-weight: 600;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.notification-message {
+  font-size: 13px;
+  color: #666;
+  margin-bottom: 4px;
+}
+
+.notification-time {
+  font-size: 12px;
+  color: #999;
 }
 
 /* ===== Workspace Layout ===== */

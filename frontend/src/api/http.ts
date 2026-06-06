@@ -7,8 +7,13 @@ export interface ApiResult<T> {
 }
 
 export async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
+  const token = localStorage.getItem('token')
+  const headers: Record<string, string> = {
+    ...(options.body instanceof FormData ? {} : { 'Content-Type': 'application/json' }),
+    ...(token ? { Authorization: `Bearer ${token}` } : {})
+  }
   const response = await fetch(`${API_BASE}${path}`, {
-    headers: options.body instanceof FormData ? undefined : { 'Content-Type': 'application/json' },
+    headers,
     ...options
   })
   if (!response.ok) {
