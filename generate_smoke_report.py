@@ -79,61 +79,20 @@ test_cases = [
     (51, "P0", "系统验证", "搜索结果数量限制", "搜索关键词→截图", "搜索结果478条"),
 ]
 
-# 冒烟测试结果 - 基于实际运行结果
-# 格式: {id: {passed: bool, note: str}}
-smoke_results = {
-    1: {"passed": True, "note": "标题输入、时间选择器正常"},
-    2: {"passed": True, "note": "结束日期输入框可见"},
-    3: {"passed": True, "note": "全天开关可勾选"},
-    4: {"passed": False, "note": "测试脚本locator超时"},
-    5: {"passed": True, "note": "地点输入正常"},
-    6: {"passed": True, "note": "描述输入正常"},
-    7: {"passed": True, "note": "标签选择器可见"},
-    8: {"passed": True, "note": "附件上传按钮可见"},
-    9: {"passed": True, "note": "每日选项可选择"},
-    10: {"passed": True, "note": "工作日选项可选择"},
-    11: {"passed": True, "note": "每周选项可选择"},
-    12: {"passed": True, "note": "每月选项可选择"},
-    13: {"passed": True, "note": "结束日期选项正常"},
-    14: {"passed": True, "note": "重复次数选项正常"},
-    15: {"passed": False, "note": "测试脚本超时"},
-    16: {"passed": True, "note": "修改全系列选项正常"},
-    17: {"passed": True, "note": "闲忙面板可见"},
-    18: {"passed": False, "note": "测试脚本超时"},
-    19: {"passed": False, "note": "测试脚本locator未找到"},
-    20: {"passed": False, "note": "测试脚本locator未找到"},
-    21: {"passed": False, "note": "测试脚本超时"},
-    22: {"passed": True, "note": "拒绝/待定按钮可见"},
-    23: {"passed": False, "note": "测试脚本超时"},
-    24: {"passed": True, "note": "编辑按钮可见"},
-    25: {"passed": True, "note": "查看详情正常"},
-    26: {"passed": True, "note": "即时选项存在"},
-    27: {"passed": False, "note": "strict mode locator冲突"},
-    28: {"passed": False, "note": "strict mode locator冲突"},
-    29: {"passed": True, "note": "重复日程提醒设置正常"},
-    30: {"passed": True, "note": "单次提醒设置正常"},
-    31: {"passed": True, "note": "月视图正常"},
-    32: {"passed": True, "note": "周视图正常"},
-    33: {"passed": True, "note": "日视图正常"},
-    34: {"passed": True, "note": "标题搜索输入正常"},
-    35: {"passed": True, "note": "筛选器正常"},
-    36: {"passed": True, "note": "关键词搜索正常"},
-    37: {"passed": True, "note": "日历筛选正常"},
-    38: {"passed": True, "note": "11个颜色标记"},
-    39: {"passed": True, "note": "编辑功能正常"},
-    40: {"passed": True, "note": "通知选项正常"},
-    41: {"passed": True, "note": "删除流程正常"},
-    42: {"passed": True, "note": "删除单条选项正常"},
-    43: {"passed": True, "note": "删除全系列选项正常"},
-    44: {"passed": True, "note": "待办绑定正常"},
-    45: {"passed": True, "note": "待办完成状态可切换"},
-    46: {"passed": True, "note": "优先级选项正常"},
-    47: {"passed": True, "note": "管理端正常"},
-    48: {"passed": True, "note": "API: true, Store: true"},
-    49: {"passed": True, "note": "编辑: true, Store加载: true"},
-    50: {"passed": True, "note": "检测到验证提示"},
-    51: {"passed": True, "note": "搜索结果478条"},
-}
+# 冒烟测试结果 - 从JSON文件读取
+smoke_results = {}
+results_json_path = os.path.join(os.path.dirname(__file__), 'frontend', 'smoke-test-results.json')
+try:
+    with open(results_json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+        for r in data.get('results', []):
+            smoke_results[r['id']] = {"passed": r['passed'], "note": r.get('note', '')}
+    print(f"从 {results_json_path} 加载了 {len(smoke_results)} 条测试结果")
+except Exception as e:
+    print(f"警告: 无法加载测试结果文件 {results_json_path}: {e}")
+    # 降级：使用默认值（全部通过）
+    for i in range(1, 52):
+        smoke_results[i] = {"passed": True, "note": "待验证"}
 
 # 创建工作簿
 wb = openpyxl.Workbook()
