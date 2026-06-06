@@ -470,6 +470,22 @@ public class EventService {
   }
 
   /**
+   * Parse a date string from the frontend into a Timestamp.
+   * Accepts ISO-8601 strings (e.g. "2026-06-10T09:30:00+08:00") and epoch millis.
+   */
+  private Timestamp parseOriginalStartAt(String value) {
+    try {
+      return Timestamp.from(java.time.OffsetDateTime.parse(value).toInstant());
+    } catch (Exception e) {
+      try {
+        return new Timestamp(Long.parseLong(value));
+      } catch (NumberFormatException nfe) {
+        throw new IllegalArgumentException("无法解析日期: " + value);
+      }
+    }
+  }
+
+  /**
    * Create or update an event. After saving the event row, replaces reminders and recurrence.
    */
   public Map<String, Object> save(Map<String, Object> payload) {
@@ -608,9 +624,10 @@ public class EventService {
   /**
    * Remove (cancel) an event. 
    * scope=single: soft-delete single event (status = CANCELLED).
+   *   For recurring events, inserts an exception record to cancel only the specific instance.
    * scope=series: cancel the entire recurrence series.
    */
-  public void remove(long id, String operatorUserId, String scope) {
+  public void remove(long id, String operatorUserId, String scope, String originalStartAt) {
     if ("series".equals(scope)) {
       // 删除整个重复系列：取消主事件
       if (operatorUserId != null) {
@@ -642,6 +659,24 @@ public class EventService {
         if (!String.valueOf(operatorUserId).equals(String.valueOf(organizerId))) {
           throw new SecurityException("只有发起人可以删除此日程");
         }
+      }
+    }
+
+    // 如果是重复日程的单个实例删除，插入异常记录而非取消主事件
+    if (originalStartAt != null && !originalStartAt.isBlank()) {
+      var recurrenceRow = jdbc.queryForList(
+          "SELECT id FROM event_recurrence WHERE event_id = ?", id);
+      if (!recurrenceRow.isEmpty()) {
+        var recurrenceId = ((Number) recurrenceRow.get(0).get("id")).longValue();
+        var originalStart = parseOriginalStartAt(originalStartAt);
+        jdbc.update(
+            "INSERT INTO event_exception (recurrence_id, original_start_at, exception_type) VALUES (?, ?, 'CANCELLED')",
+            recurrenceId, originalStart);
+        if (operatorUserId != null) {
+          audit.record(operatorUserId, "event", "cancel_instance", "event_exception", recurrenceId,
+              "重复日程单次取消: " + originalStartAt);
+        }
+        return;
       }
     }
     

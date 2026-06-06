@@ -495,7 +495,9 @@ async function removeEvent(event: EventItem) {
         if (action === 'cancel') {
           // 仅删除本次
           if (event.id && !String(event.id).startsWith('local-')) {
-            await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
+            const params = `operatorUserId=${store.currentUserId}&scope=single`
+            const originalStart = event.start_at ? `&originalStartAt=${encodeURIComponent(event.start_at)}` : ''
+            await api.delete(`/events/${event.id}?${params}${originalStart}`)
           }
           ElMessage.success('已删除')
         }
