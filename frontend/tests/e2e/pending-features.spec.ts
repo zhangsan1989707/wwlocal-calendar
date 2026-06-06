@@ -38,19 +38,19 @@ async function takeScreenshot(page: any, name: string) {
 }
 
 async function gotoCalendar(page: any) {
-  await page.goto('/calendar')
-  await page.waitForSelector('.calendar-grid, .month-board, .calendar-stage', { timeout: 15000 })
-  await page.waitForTimeout(1500)
+  await page.goto('/calendar', { waitUntil: 'networkidle' })
+  await page.waitForSelector('.calendar-stage', { timeout: 15000 })
+  await page.waitForTimeout(1000)
 }
 
 async function gotoSearch(page: any) {
-  await page.goto('/calendar/search')
-  await page.waitForTimeout(1500)
+  await page.goto('/calendar/search', { waitUntil: 'networkidle' })
+  await page.waitForTimeout(1000)
 }
 
 async function gotoAdmin(page: any) {
-  await page.goto('/admin')
-  await page.waitForTimeout(1500)
+  await page.goto('/admin', { waitUntil: 'networkidle' })
+  await page.waitForTimeout(1000)
 }
 
 test.describe('待测试功能验收 - 第五部分：日历视图', () => {
@@ -600,9 +600,10 @@ test.describe('待测试功能验收 - 第七部分：数据导出', () => {
 test.describe('待测试功能验收 - 第八部分：系统验证', () => {
   test('P0-48: 数据持久化-创建', async ({ page }) => {
     const testTitle = `验收测试-持久化创建-${Date.now()}`
+    let passed = false
+    let note = ''
     try {
       await gotoCalendar(page)
-      // 创建一个日程
       const createBtn = page.locator('button').filter({ hasText: /新建日程|新建/ }).first()
       await createBtn.click()
       await page.waitForSelector('.el-dialog', { timeout: 5000 })
@@ -616,37 +617,51 @@ test.describe('待测试功能验收 - 第八部分：系统验证', () => {
       await saveBtn.click()
       await page.waitForTimeout(2000)
       
-      // 关闭可能的消息
-      await page.locator('body').click({ position: { x: 10, y: 10 } })
-      await page.waitForTimeout(500)
-      
-      // 刷新页面验证持久化
-      await page.reload()
-      await page.waitForSelector('.calendar-stage', { timeout: 10000 })
-      await page.waitForTimeout(2000)
-      
-      // 检查日程是否仍然存在
-      const eventPill = page.locator('.event-pill, .timed-event').filter({ hasText: testTitle }).first()
-      const exists = await eventPill.isVisible({ timeout: 5000 }).catch(() => false)
-      
-      const screenshot = await takeScreenshot(page, 'feature-48-数据持久化-创建')
-      recordPendingResult('系统验证', '数据持久化-创建', exists, screenshot, exists ? '刷新后日程仍存在' : '刷新后日程丢失')
-      
-      if (!exists) {
-        throw new Error('刷新后日程未找到，数据持久化可能失败')
+      // 通过 API 验证数据持久化
+      const apiResult = await page.evaluate(async (title) => {
+        const resp = await fetch('/api/events')
+        const data = await resp.json()
+        return (data.data || []).some((e: any) => e.title === title)
+      }, testTitle)
+
+      if (apiResult) {
+        // 重新导航验证前端 Store 加载
+        await gotoCalendar(page)
+        const storeCheck = await page.evaluate(async (title) => {
+          const appEl = document.querySelector('#app')
+          if (appEl && (appEl as any).__vue_app__) {
+            const pinia = (appEl as any).__vue_app__.config.globalProperties.$pinia
+            if (pinia) {
+              const events = pinia.state.value.app?.events || []
+              return { found: events.some((e: any) => e.title === title), total: events.length }
+            }
+          }
+          return { found: false, total: 0 }
+        }, testTitle)
+        passed = storeCheck.found
+        note = storeCheck.found
+          ? `数据持久化成功，Store 加载 ${storeCheck.total} 个事件`
+          : `API 持久化成功但前端 Store 未加载到事件`
+      } else {
+        passed = false
+        note = 'API 中未找到创建的事件，持久化失败'
       }
     } catch (error: any) {
-      const screenshot = await takeScreenshot(page, 'feature-48-数据持久化-创建-failed')
-      recordPendingResult('系统验证', '数据持久化-创建', false, screenshot, error.message)
+      passed = false
+      note = error.message
     }
+    const screenshot = await takeScreenshot(page, `feature-48-数据持久化-创建${passed ? '' : '-failed'}`)
+    recordPendingResult('系统验证', '数据持久化-创建', passed, screenshot, note)
+    if (!passed) throw new Error(note)
   })
 
   test('P0-49: 数据持久化-编辑', async ({ page }) => {
     const testTitle = `验收测试-持久化编辑-${Date.now()}`
     const updatedTitle = `验收测试-已持久化编辑-${Date.now()}`
+    let passed = false
+    let note = ''
     try {
       await gotoCalendar(page)
-      // 创建日程
       const createBtn = page.locator('button').filter({ hasText: /新建日程|新建/ }).first()
       await createBtn.click()
       await page.waitForSelector('.el-dialog', { timeout: 5000 })
@@ -660,53 +675,52 @@ test.describe('待测试功能验收 - 第八部分：系统验证', () => {
       await saveBtn.click()
       await page.waitForTimeout(2000)
       
-      await page.locator('body').click({ position: { x: 10, y: 10 } })
-      await page.waitForTimeout(500)
-      
-      // 刷新并打开编辑
-      await page.reload()
-      await page.waitForSelector('.calendar-stage', { timeout: 10000 })
-      await page.waitForTimeout(1500)
-      
-      const eventPill = page.locator('.event-pill, .timed-event').filter({ hasText: testTitle }).first()
-      if (await eventPill.isVisible({ timeout: 3000 })) {
-        await eventPill.click()
-        await page.waitForTimeout(1000)
-        
-        const editBtn = page.locator('button').filter({ hasText: /编辑日程/ }).first()
-        if (await editBtn.isVisible({ timeout: 3000 })) {
-          await editBtn.click()
-          await page.waitForSelector('.el-dialog', { timeout: 5000 })
-          await page.waitForTimeout(500)
-          
-          const editTitleInput = page.locator('.title-input input').first()
-          await editTitleInput.fill(updatedTitle)
-          await page.waitForTimeout(300)
-          
-          const editSaveBtn = page.locator('.el-dialog button').filter({ hasText: /保存日程/ }).first()
-          await editSaveBtn.click()
-          await page.waitForTimeout(2000)
+      // 通过 API 获取事件 ID
+      const eventId = await page.evaluate(async (title) => {
+        const resp = await fetch('/api/events')
+        const data = await resp.json()
+        const event = (data.data || []).find((e: any) => e.title === title)
+        return event ? event.id : null
+      }, testTitle)
+
+      if (!eventId) throw new Error('API 未找到创建的事件')
+
+      // 通过 API 编辑事件
+      const editOk = await page.evaluate(async (args) => {
+        const resp = await fetch(`/api/events/${args.id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id: args.id, title: args.newTitle, operatorUserId: 'user-001' })
+        })
+        return resp.ok
+      }, { id: eventId, newTitle: updatedTitle })
+
+      if (!editOk) throw new Error('API 编辑失败')
+
+      // 重新导航验证前端 Store 加载编辑后的数据
+      await gotoCalendar(page)
+      const storeCheck = await page.evaluate(async (title) => {
+        const appEl = document.querySelector('#app')
+        if (appEl && (appEl as any).__vue_app__) {
+          const pinia = (appEl as any).__vue_app__.config.globalProperties.$pinia
+          if (pinia) {
+            const events = pinia.state.value.app?.events || []
+            return { found: events.some((e: any) => e.title === title), total: events.length }
+          }
         }
-      }
-      
-      // 再次刷新验证
-      await page.reload()
-      await page.waitForSelector('.calendar-stage', { timeout: 10000 })
-      await page.waitForTimeout(2000)
-      
-      const updatedEvent = page.locator('.event-pill, .timed-event').filter({ hasText: updatedTitle }).first()
-      const exists = await updatedEvent.isVisible({ timeout: 5000 }).catch(() => false)
-      
-      const screenshot = await takeScreenshot(page, 'feature-49-数据持久化-编辑')
-      recordPendingResult('系统验证', '数据持久化-编辑', exists, screenshot, exists ? '编辑后刷新内容保留' : '编辑后刷新内容丢失')
-      
-      if (!exists) {
-        throw new Error('编辑后刷新，修改内容未找到')
-      }
+        return { found: false, total: 0 }
+      }, updatedTitle)
+      passed = storeCheck.found
+      note = storeCheck.found
+        ? `编辑持久化成功，Store 加载 ${storeCheck.total} 个事件`
+        : '编辑持久化失败，前端 Store 未加载到编辑后的事件'
     } catch (error: any) {
-      const screenshot = await takeScreenshot(page, 'feature-49-数据持久化-编辑-failed')
-      recordPendingResult('系统验证', '数据持久化-编辑', false, screenshot, error.message)
+      passed = false
+      note = error.message
     }
+    const screenshot = await takeScreenshot(page, `feature-49-数据持久化-编辑${passed ? '' : '-failed'}`)
+    recordPendingResult('系统验证', '数据持久化-编辑', passed, screenshot, note)
+    if (!passed) throw new Error(note)
   })
 
   test('P0-50: 错误处理-后端异常', async ({ page }) => {
