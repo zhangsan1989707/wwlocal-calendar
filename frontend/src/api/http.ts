@@ -58,6 +58,31 @@ export async function downloadFile(path: string, body?: unknown, filename?: stri
   a.remove()
 }
 
+export async function downloadGetFile(path: string, filename?: string): Promise<void> {
+  const token = localStorage.getItem('token')
+  const response = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+  })
+  if (!response.ok) {
+    throw new Error(`请求失败：${response.status}`)
+  }
+  const blob = await response.blob()
+  const url = window.URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  const contentDisposition = response.headers.get('Content-Disposition')
+  const suggestedFilename = contentDisposition
+    ? contentDisposition.split('filename=')[1]?.replace(/"/g, '')
+    : (filename || 'download')
+  a.download = suggestedFilename
+  document.body.appendChild(a)
+  a.click()
+  window.URL.revokeObjectURL(url)
+  a.remove()
+}
+
 export async function uploadFile(path: string, formData: FormData): Promise<any> {
   return request(path, { method: 'POST', body: formData })
 }
@@ -68,5 +93,6 @@ export const api = {
   put: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PUT', body: JSON.stringify(body ?? {}) }),
   delete: <T>(path: string) => request<T>(path, { method: 'DELETE' }),
   downloadFile,
+  downloadGetFile,
   uploadFile
 }

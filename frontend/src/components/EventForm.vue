@@ -175,8 +175,8 @@
           </el-form-item>
           <el-form-item v-if="isEditingRecurrence && editScope === 'single'" label="提醒">
             <el-radio-group v-model="overrideReminder">
-              <el-radio :label="false">继承原系列提醒</el-radio>
-              <el-radio :label="true">自定义本次提醒</el-radio>
+              <el-radio :value="false">继承原系列提醒</el-radio>
+              <el-radio :value="true">自定义本次提醒</el-radio>
             </el-radio-group>
           </el-form-item>
           <el-form-item v-if="isEditingRecurrence && editScope === 'single' && overrideReminder" label="提醒档位">

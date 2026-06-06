@@ -91,6 +91,17 @@ public class EventController {
         return ApiResponse.ok(events.getEventParticipants(id));
     }
 
+    @PostMapping("/events/{id}/participants")
+    public ApiResponse<Map<String, Object>> addParticipant(@PathVariable long id, @RequestBody Map<String, Object> payload) {
+        return ApiResponse.ok(events.addParticipant(id, payload));
+    }
+
+    @DeleteMapping("/events/{id}/participants/{participantId}")
+    public ApiResponse<Void> removeParticipant(@PathVariable long id, @PathVariable long participantId) {
+        events.removeParticipant(id, participantId);
+        return ApiResponse.ok();
+    }
+
     @GetMapping("/events/{id}/reminders")
     public ApiResponse<List<Map<String, Object>>> getEventReminders(@PathVariable long id) {
         return ApiResponse.ok(events.getEventReminders(id));

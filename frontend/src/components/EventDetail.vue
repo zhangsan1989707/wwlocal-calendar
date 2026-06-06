@@ -150,7 +150,7 @@
 import { computed, ref, watch } from 'vue'
 import { ElMessage } from 'element-plus'
 import { Calendar, Close, Delete, Document, Edit, Location, Tickets, Download } from '@element-plus/icons-vue'
-import { api } from '../api/http'
+import { api, downloadGetFile } from '../api/http'
 import type { EventItem } from '../api/types'
 
 interface Attachment {
@@ -251,8 +251,12 @@ function formatFileSize(bytes: number): string {
   return (bytes / (1024 * 1024)).toFixed(1) + ' MB'
 }
 
-function downloadAttachment(attachment: Attachment) {
-  window.open(`/api/files/${attachment.id}/download`, '_blank')
+async function downloadAttachment(attachment: Attachment) {
+  try {
+    await downloadGetFile(`/files/${attachment.id}/download`, attachment.file_name)
+  } catch {
+    ElMessage.error('附件下载失败')
+  }
 }
 
 function getResponseStatusLabel(status: string): string {

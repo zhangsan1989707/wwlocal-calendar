@@ -992,6 +992,45 @@ public class EventService {
     return jdbc.queryForList("SELECT * FROM event_todo WHERE event_id = ?", eventId);
   }
 
+  public Map<String, Object> addParticipant(long eventId, Map<String, Object> payload) {
+    var userId = payload.get("userId");
+    var departmentId = payload.get("departmentId");
+    var externalContactId = payload.get("externalContactId");
+    var role = String.valueOf(payload.getOrDefault("role", "VIEWER"));
+
+    if (externalContactId != null) {
+      jdbc.update(
+          "INSERT INTO event_participant(event_id, external_contact_id, response_status, role) VALUES (?, ?, 'NEEDS_ACTION', ?)",
+          eventId, ((Number) externalContactId).longValue(), role);
+    } else if (userId != null) {
+      jdbc.update(
+          "INSERT INTO event_participant(event_id, user_id, response_status, role) VALUES (?, ?, 'NEEDS_ACTION', ?)",
+          eventId, String.valueOf(userId), role);
+    } else if (departmentId != null) {
+      jdbc.update(
+          "INSERT INTO event_participant(event_id, department_id, response_status) VALUES (?, ?, 'NEEDS_ACTION')",
+          eventId, String.valueOf(departmentId));
+    } else {
+      throw new IllegalArgumentException("必须提供 userId、departmentId 或 externalContactId");
+    }
+
+    return jdbc.queryForMap("""
+        SELECT ep.*,
+               COALESCE(u.name, d.name, ec.name) AS name,
+               ec.company AS external_company,
+               ec.contact_type AS external_contact_type
+        FROM event_participant ep
+        LEFT JOIN users u ON ep.user_id = u.id
+        LEFT JOIN departments d ON ep.department_id = d.id
+        LEFT JOIN external_contact ec ON ep.external_contact_id = ec.id
+        WHERE ep.event_id = ? AND ep.id = currval('event_participant_id_seq')
+        """, eventId);
+  }
+
+  public void removeParticipant(long eventId, long participantId) {
+    jdbc.update("DELETE FROM event_participant WHERE id = ? AND event_id = ?", participantId, eventId);
+  }
+
   public Map<String, Object> toggleTodo(long todoId, boolean completed, String operatorUserId) {
     jdbc.update("UPDATE event_todo SET completed = ?, updated_at = now() WHERE id = ?", completed, todoId);
     if (operatorUserId != null) {

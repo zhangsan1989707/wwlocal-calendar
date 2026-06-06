@@ -214,8 +214,8 @@ export async function getNotificationText(page: Page): Promise<string> {
  * Wait for the calendar page to fully load (data fetched).
  */
 export async function waitForCalendarLoad(page: Page) {
-  // Wait for the calendar grid to render
-  await page.waitForSelector('.calendar-grid, .full-calendar, [class*="calendar"]', { timeout: 10000 })
+  // 等待实际渲染的 calendar 阶段出现（与 CalendarHome 真实 className 对齐）
+  await page.waitForSelector('.calendar-stage', { timeout: 15000 })
   // Give time for API calls to complete
   await page.waitForTimeout(1000)
 }

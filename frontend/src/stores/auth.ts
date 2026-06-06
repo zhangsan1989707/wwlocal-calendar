@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+const API_BASE = import.meta.env.VITE_API_BASE || '/api'
+
 interface AuthState {
   token: string | null
   userId: string | null
@@ -22,7 +24,7 @@ export const useAuthStore = defineStore('auth', () => {
   const isAdmin = computed(() => state.value.role === 'admin')
 
   async function login(username: string, password: string) {
-    const res = await fetch('/api/auth/login', {
+    const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password })
@@ -46,7 +48,7 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function register(username: string, password: string, displayName: string) {
-    const res = await fetch('/api/auth/register', {
+    const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ username, password, displayName })

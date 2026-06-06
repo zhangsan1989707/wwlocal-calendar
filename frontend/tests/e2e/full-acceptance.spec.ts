@@ -3,7 +3,7 @@
  * 覆盖所有51个功能验收点
  */
 
-import { test, expect } from '@playwright/test'
+import { test, expect, type Page } from '@playwright/test'
 import {
   gotoCalendar,
   gotoSearch,
@@ -49,10 +49,49 @@ if (!fs.existsSync(screenshotsDir)) {
   fs.mkdirSync(screenshotsDir, { recursive: true })
 }
 
+// full-acceptance 内部结果收集（避开 helpers 中非 export 的 testResults）
+const fullAcceptanceResults: Array<{
+  id: number
+  module: string
+  feature: string
+  passed: boolean
+  screenshotPath?: string
+}> = []
+let fullAcceptanceNextId = 1
+function recordFullResult(
+  module: string,
+  feature: string,
+  passed: boolean,
+  screenshotPath?: string
+) {
+  fullAcceptanceResults.push({
+    id: fullAcceptanceNextId++,
+    module,
+    feature,
+    passed,
+    screenshotPath
+  })
+}
+
+async function loginAdmin(page: Page, username = 'admin') {
+  await page.goto('/login', { waitUntil: 'networkidle' })
+  await page.getByPlaceholder('用户名').fill(username)
+  await page.getByPlaceholder('密码').fill('admin123')
+  await page.getByRole('button', { name: '登录' }).click()
+  await page.waitForURL(/\/calendar/, { timeout: 15000 }).catch(() => {})
+  await page.waitForSelector('.calendar-stage', { timeout: 15000 })
+  await page.locator('.el-message').waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {})
+}
+
 test.describe('完整功能验收测试', () => {
   test.beforeAll(async () => {
     // 前置准备
     console.log('开始功能验收测试...')
+  })
+
+  // 共享登录状态：每个 test 启动前确保已登录到 /calendar
+  test.beforeEach(async ({ page }) => {
+    await loginAdmin(page)
   })
 
   // ==================== 第一部分：日程基础创建模块 ====================
@@ -66,7 +105,7 @@ test.describe('完整功能验收测试', () => {
         await saveEvent(page)
         
         const msg = await getNotificationText(page)
-        expect(msg).toContain('已保存') || expect(msg).toContain('成功')
+        expect(msg).toMatch(/已保存|成功/)
         
         await page.reload()
         await waitForCalendarLoad(page)
@@ -90,7 +129,7 @@ test.describe('完整功能验收测试', () => {
         await saveEvent(page)
         
         const msg = await getNotificationText(page)
-        expect(msg).toContain('已保存') || expect(msg).toContain('成功')
+        expect(msg).toMatch(/已保存|成功/)
         
         const screenshot = await takeScreenshot(page, 'p0-2-cross-day-event')
         recordTestResult('日程基础创建', '跨天日程设置', true, screenshot)
@@ -111,7 +150,7 @@ test.describe('完整功能验收测试', () => {
         await saveEvent(page)
         
         const msg = await getNotificationText(page)
-        expect(msg).toContain('已保存') || expect(msg).toContain('成功')
+        expect(msg).toMatch(/已保存|成功/)
         
         const screenshot = await takeScreenshot(page, 'p0-3-all-day-event')
         recordTestResult('日程基础创建', '全天事件设置', true, screenshot)
@@ -143,7 +182,7 @@ test.describe('完整功能验收测试', () => {
         await saveEvent(page)
         
         const msg = await getNotificationText(page)
-        expect(msg).toContain('已保存') || expect(msg).toContain('成功')
+        expect(msg).toMatch(/已保存|成功/)
         
         const screenshot = await takeScreenshot(page, 'p0-4-location-filled')
         recordTestResult('日程基础创建', '地点填写', true, screenshot)
@@ -164,7 +203,7 @@ test.describe('完整功能验收测试', () => {
         await saveEvent(page)
         
         const msg = await getNotificationText(page)
-        expect(msg).toContain('已保存') || expect(msg).toContain('成功')
+        expect(msg).toMatch(/已保存|成功/)
         
         const screenshot = await takeScreenshot(page, 'p1-2-description-filled')
         recordTestResult('日程基础创建', '备注详情填写', true, screenshot)
@@ -211,7 +250,7 @@ test.describe('完整功能验收测试', () => {
         await saveEvent(page)
         
         const msg = await getNotificationText(page)
-        expect(msg).toContain('已保存') || expect(msg).toContain('成功')
+        expect(msg).toMatch(/已保存|成功/)
         
         const screenshot = await takeScreenshot(page, 'p0-5-daily-recurrence')
         recordTestResult('重复周期配置', '循环规则-每日', true, screenshot)
@@ -232,7 +271,7 @@ test.describe('完整功能验收测试', () => {
         await saveEvent(page)
         
         const msg = await getNotificationText(page)
-        expect(msg).toContain('已保存') || expect(msg).toContain('成功')
+        expect(msg).toMatch(/已保存|成功/)
         
         const screenshot = await takeScreenshot(page, 'p0-6-workday-recurrence')
         recordTestResult('重复周期配置', '循环规则-工作日', true, screenshot)
@@ -251,7 +290,7 @@ test.describe('完整功能验收测试', () => {
         await saveEvent(page)
         
         const msg = await getNotificationText(page)
-        expect(msg).toContain('已保存') || expect(msg).toContain('成功')
+        expect(msg).toMatch(/已保存|成功/)
         
         const screenshot = await takeScreenshot(page, 'p0-7-weekly-recurrence')
         recordTestResult('重复周期配置', '循环规则-每周/双周', true, screenshot)
@@ -730,12 +769,12 @@ test.describe('完整功能验收测试', () => {
     fs.writeFileSync(reportPath, JSON.stringify({
       generatedAt: new Date().toISOString(),
       totalTests: 51,
-      results: testResults
+      results: fullAcceptanceResults
     }, null, 2))
-    
-    console.log(`\n测试完成！共执行 ${testResults.length} 个功能点`)
-    console.log(`通过: ${testResults.filter(r => r.passed).length}`)
-    console.log(`失败: ${testResults.filter(r => !r.passed).length}`)
+
+    console.log(`\n测试完成！共执行 ${fullAcceptanceResults.length} 个功能点`)
+    console.log(`通过: ${fullAcceptanceResults.filter(r => r.passed).length}`)
+    console.log(`失败: ${fullAcceptanceResults.filter(r => !r.passed).length}`)
     console.log(`报告已保存到: ${reportPath}`)
   })
 })
