@@ -46,9 +46,10 @@
             </el-select>
           </el-form-item>
           <el-form-item label="时区">
-            <el-select v-model="form.timezone" filterable placeholder="选择时区">
+            <el-select v-model="form.timezone" filterable clearable placeholder="选择时区（默认浏览器本地）">
               <el-option v-for="tz in timezoneOptions" :key="tz.value" :label="tz.label" :value="tz.value" />
             </el-select>
+            <div v-if="form.timezone" class="form-hint">日期/时间按所选时区解释，存储时换算为 UTC</div>
           </el-form-item>
           <el-form-item label="参与部门">
             <el-select v-model="departmentIds" multiple filterable placeholder="添加部门（可选）">
@@ -125,16 +126,28 @@
             </el-select>
           </el-form-item>
           <el-form-item label="提醒">
-            <el-select v-model="reminderLabel">
-              <el-option label="不提醒" value="不提醒" />
-              <el-option label="即时" value="即时" />
-              <el-option label="5分钟前" value="5分钟前" />
-              <el-option label="15分钟前" value="15分钟前" />
-              <el-option label="30分钟前" value="30分钟前" />
-              <el-option label="1小时前" value="1小时前" />
-              <el-option label="1天前" value="1天前" />
-              <el-option label="自定义" value="自定义" />
-            </el-select>
+            <div class="reminder-row">
+              <el-select v-model="reminderLabel">
+                <el-option label="不提醒" value="不提醒" />
+                <el-option label="即时" value="即时" />
+                <el-option label="5分钟前" value="5分钟前" />
+                <el-option label="15分钟前" value="15分钟前" />
+                <el-option label="30分钟前" value="30分钟前" />
+                <el-option label="1小时前" value="1小时前" />
+                <el-option label="1天前" value="1天前" />
+                <el-option label="自定义" value="自定义" />
+              </el-select>
+              <el-input-number
+                v-if="reminderLabel === '自定义'"
+                v-model="customReminderMinutes"
+                :min="0"
+                :max="10080"
+                :step="5"
+                size="small"
+                class="reminder-custom-input"
+              />
+              <span v-if="reminderLabel === '自定义'" class="reminder-suffix">分钟前</span>
+            </div>
           </el-form-item>
           <el-form-item label="重复">
             <el-select v-model="form.recurrence_rule" clearable placeholder="不重复" @change="onRecurrenceChange">
@@ -153,15 +166,28 @@
             </el-radio-group>
           </el-form-item>
           <el-form-item v-if="isEditingRecurrence && editScope === 'single' && overrideReminder" label="提醒档位">
-            <el-select v-model="reminderLabel">
-              <el-option label="不提醒" value="不提醒" />
-              <el-option label="即时" value="即时" />
-              <el-option label="5分钟前" value="5分钟前" />
-              <el-option label="15分钟前" value="15分钟前" />
-              <el-option label="30分钟前" value="30分钟前" />
-              <el-option label="1小时前" value="1小时前" />
-              <el-option label="1天前" value="1天前" />
-            </el-select>
+            <div class="reminder-row">
+              <el-select v-model="reminderLabel">
+                <el-option label="不提醒" value="不提醒" />
+                <el-option label="即时" value="即时" />
+                <el-option label="5分钟前" value="5分钟前" />
+                <el-option label="15分钟前" value="15分钟前" />
+                <el-option label="30分钟前" value="30分钟前" />
+                <el-option label="1小时前" value="1小时前" />
+                <el-option label="1天前" value="1天前" />
+                <el-option label="自定义" value="自定义" />
+              </el-select>
+              <el-input-number
+                v-if="reminderLabel === '自定义'"
+                v-model="customReminderMinutes"
+                :min="0"
+                :max="10080"
+                :step="5"
+                size="small"
+                class="reminder-custom-input"
+              />
+              <span v-if="reminderLabel === '自定义'" class="reminder-suffix">分钟前</span>
+            </div>
           </el-form-item>
           <el-form-item v-if="isEditingRecurrence" label="修改范围">
             <el-radio-group v-model="editScope">
@@ -298,6 +324,7 @@ const startTime = ref('11:30')
 const endTime = ref('12:30')
 const durationLabel = ref('1小时')
 const reminderLabel = ref('15分钟前')
+const customReminderMinutes = ref(10)
 const editScope = ref<'single' | 'series'>('series')
 const notifyParticipants = ref(true)
 const overrideReminder = ref(false)
@@ -518,7 +545,8 @@ watch(
           } else if (minutes === 1440) {
             reminderLabel.value = '1天前'
           } else {
-            reminderLabel.value = '不提醒' // 自定义暂时不支持，先设为不提醒
+            reminderLabel.value = '自定义'
+            customReminderMinutes.value = Number(minutes) || 10
           }
         }
       } catch {
@@ -623,18 +651,39 @@ async function submit() {
     ElMessage.warning('请填写必填信息')
     return
   }
-  const start = mergeDateTime(startDate.value, startTime.value)
-  const end = mergeDateTime(endDate.value, endTime.value)
+  // 把用户在表单里选的墙钟时间按"事件时区"换算为 UTC
+  // 若事件时区为空/非法则回退到浏览器本地时区
+  let eventTimezone: string | undefined = form.timezone
+  if (eventTimezone) {
+    try {
+      new Intl.DateTimeFormat('en-US', { timeZone: eventTimezone }).format(new Date())
+    } catch {
+      eventTimezone = undefined
+    }
+  }
+  const start = eventTimezone
+    ? zonedDateTimeToUtc(startDate.value, startTime.value, eventTimezone)
+    : mergeDateTime(startDate.value, startTime.value)
+  const end = eventTimezone
+    ? zonedDateTimeToUtc(endDate.value, endTime.value, eventTimezone)
+    : mergeDateTime(endDate.value, endTime.value)
 
   // Translate reminderLabel to reminders array for backend
   const reminders: Array<{ minutes_before: number; method: string }> = []
   const reminderLabelVal = reminderLabel.value
-  if (reminderLabelVal === '即时') {
+  if (reminderLabelVal === '不提醒') {
+    // 不提醒：不写入任何提醒行
+  } else if (reminderLabelVal === '即时') {
     reminders.push({ minutes_before: 0, method: 'SYSTEM' })
   } else if (reminderLabelVal === '1小时前') {
     reminders.push({ minutes_before: 60, method: 'SYSTEM' })
   } else if (reminderLabelVal === '1天前') {
     reminders.push({ minutes_before: 1440, method: 'SYSTEM' })
+  } else if (reminderLabelVal === '自定义') {
+    const minutes = Number(customReminderMinutes.value)
+    if (Number.isFinite(minutes) && minutes >= 0) {
+      reminders.push({ minutes_before: minutes, method: 'SYSTEM' })
+    }
   } else {
     const reminderMatch = reminderLabelVal.match(/^(\d+)/)
     if (reminderMatch) {
@@ -643,9 +692,11 @@ async function submit() {
   }
 
   function reminderMinutes(): number {
+    if (reminderLabelVal === '不提醒') return -1
     if (reminderLabelVal === '即时') return 0
     if (reminderLabelVal === '1小时前') return 60
     if (reminderLabelVal === '1天前') return 1440
+    if (reminderLabelVal === '自定义') return Number(customReminderMinutes.value) || 0
     const match = reminderLabelVal.match(/^(\d+)/)
     return match ? parseInt(match[1]) : 15
   }
@@ -701,6 +752,34 @@ function mergeDateTime(date: Date, time: string) {
   return result
 }
 
+// 把"用户在表单里选的本地墙钟时间 + 时区"换算为 UTC Date 对象
+// 例如：date=2026-06-06, time=10:00, tz=America/Los_Angeles → UTC 17:00 (PST) 或 18:00 (PDT)
+function zonedDateTimeToUtc(date: Date, time: string, timeZone: string): Date {
+  const [hour, minute] = time.split(':').map(Number)
+  const y = date.getFullYear()
+  const m = date.getMonth()
+  const d = date.getDate()
+  // 把输入当作 UTC 来构造一个"假 UTC"时间
+  const fakeUtc = new Date(Date.UTC(y, m, d, hour || 0, minute || 0, 0))
+  // 计算目标时区在这个 instant 下的偏移（毫秒）
+  const fmt = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false
+  })
+  const parts = fmt.formatToParts(fakeUtc)
+  const get = (t: string) => +parts.find(p => p.type === t)!.value
+  // 注意：hour 可能为 "24"（午夜特殊情况），需要取模
+  const tzAsUtc = Date.UTC(
+    get('year'), get('month') - 1, get('day'),
+    get('hour') % 24, get('minute'), get('second')
+  )
+  const offsetMs = tzAsUtc - fakeUtc.getTime()
+  // 真实的 UTC 时刻 = 假 UTC - 偏移
+  return new Date(fakeUtc.getTime() - offsetMs)
+}
+
 function formatTime(date: Date) {
   return `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
 }
@@ -712,6 +791,26 @@ function formatTime(date: Date) {
   grid-template-columns: 43% 57%;
   height: min(640px, calc(100vh - 172px));
   min-height: 520px;
+}
+
+.reminder-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.reminder-row .reminder-custom-input {
+  width: 130px;
+}
+.reminder-row .reminder-suffix {
+  color: #909399;
+  font-size: 12px;
+}
+.form-hint {
+  color: #909399;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-top: 2px;
 }
 
 .event-form-pane {

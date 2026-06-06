@@ -409,7 +409,8 @@ public class EventService {
       };
     }
 
-    if ("WEEKLY".equals(freq)) {
+    // DAILY+BYDAY（如"工作日"）和 WEEKLY+BYDAY 走同一套按星期几推进的逻辑
+    if ("WEEKLY".equals(freq) || "DAILY".equals(freq)) {
       // 按星期几重复
       var dayOfWeek = current.getDayOfWeek();
       var targetIndex = byDays.indexOf(dayOfWeek);
@@ -419,7 +420,7 @@ public class EventService {
         var daysUntil = (nextDow.getValue() - dayOfWeek.getValue() + 7) % 7;
         return current.plusDays(daysUntil == 0 ? 7 : daysUntil);
       } else {
-        // 下一周的第一个目标星期
+        // 下一周期的第一个目标星期（DAILY+BYDAY 用 interval 跳过对应周数）
         var nextDow = byDays.get(0);
         var daysUntil = (nextDow.getValue() - dayOfWeek.getValue() + 7) % 7;
         if (daysUntil == 0) daysUntil = 7;

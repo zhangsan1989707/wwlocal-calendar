@@ -139,6 +139,10 @@ async function search() {
     params.set('start', range.value[0].toISOString())
     params.set('end', range.value[1].toISOString())
   }
+  // 显式传当前用户 ID，避免看到其它人参与的日程
+  if (store.currentUserId) {
+    params.set('userId', store.currentUserId)
+  }
   try {
     events.value = await api.get<EventItem[]>(`/events?${params.toString()}`)
   } catch {

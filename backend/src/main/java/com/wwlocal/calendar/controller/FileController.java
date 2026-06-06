@@ -28,6 +28,14 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * 旧版文件上传/下载端点，已被 {@link OpsController} 中的 /api/files/upload 与
+ * /api/files/{id}/download 取代。保留此类只为兼容历史调用，逻辑不再演进。
+ * 新代码请使用 OpsController 的实现（含路径遍历校验、审计日志）。
+ *
+ * @deprecated since 2026-06-06, use OpsController
+ */
+@Deprecated
 @RestController
 @RequestMapping("/api/legacy")
 public class FileController {

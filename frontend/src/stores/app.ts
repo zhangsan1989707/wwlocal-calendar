@@ -39,7 +39,14 @@ export const useAppStore = defineStore('app', {
     },
     async loadEvents(query = '') {
       try {
-        this.events = await api.get<EventItem[]>(`/events${query}`)
+        // 后端已默认按当前用户过滤；显式传 currentUserId 以兼容非默认分支
+        const separator = query.includes('?') ? '&' : '?'
+        const userIdQuery = `userId=${encodeURIComponent(this.currentUserId)}`
+        const allUsersQuery = 'allUsers=true'
+        const finalQuery = query
+          ? `${query}&${userIdQuery}&${allUsersQuery}`
+          : `?${userIdQuery}&${allUsersQuery}`
+        this.events = await api.get<EventItem[]>(`/events${finalQuery}`)
       } catch (err) {
         console.warn('loadEvents failed:', err)
         this.events = []

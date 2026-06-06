@@ -2,6 +2,7 @@ package com.wwlocal.calendar.controller;
 
 import com.wwlocal.calendar.api.ApiResponse;
 import com.wwlocal.calendar.service.EventService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -33,7 +34,19 @@ public class EventController {
     }
 
     @GetMapping("/events")
-    public ApiResponse<List<Map<String, Object>>> list(@RequestParam Map<String, String> params) {
+    public ApiResponse<List<Map<String, Object>>> list(@RequestParam Map<String, String> params,
+                                                      HttpServletRequest request) {
+        // 隐私默认：未指定 userId 时仅返回与当前用户相关的日程
+        // 管理员可传 allUsers=true 跳过此限制
+        if (params.get("userId") == null || params.get("userId").isBlank()) {
+            if (!"true".equalsIgnoreCase(params.get("allUsers"))) {
+                var currentUserId = (String) request.getAttribute("currentUserId");
+                var currentUserRole = (String) request.getAttribute("currentUserRole");
+                if (!"admin".equals(currentUserRole)) {
+                    params.put("userId", currentUserId == null ? "" : currentUserId);
+                }
+            }
+        }
         return ApiResponse.ok(events.search(params));
     }
 

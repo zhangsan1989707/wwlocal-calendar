@@ -20,8 +20,9 @@
             </div>
             <div class="meta-content">
               <span class="meta-label">时间</span>
-              <span class="meta-value">{{ format(event.start_at) }} - {{ format(event.end_at) }}</span>
+              <span class="meta-value">{{ format(event.start_at, event.timezone) }} - {{ format(event.end_at, event.timezone) }}</span>
               <span v-if="event.all_day" class="meta-tag">全天</span>
+              <span v-if="event.timezone" class="meta-tag meta-tag-info">{{ event.timezone }}</span>
             </div>
           </div>
 
@@ -118,7 +119,7 @@
           </div>
         </div>
 
-        <div v-if="isOrganizer" class="action-row">
+        <div v-if="canEdit" class="action-row">
           <el-button type="primary" @click="$emit('edit', event)">
             <el-icon><Edit /></el-icon>
             编辑日程
@@ -134,7 +135,7 @@
           </div>
         </div>
 
-        <div v-if="isOrganizer" class="danger-zone">
+        <div v-if="canEdit" class="danger-zone">
           <el-button type="danger" plain @click="$emit('remove', event)">
             <el-icon><Delete /></el-icon>
             删除日程
@@ -167,6 +168,7 @@ interface Participant {
   user_id: string | null
   department_id: string | null
   response_status: string
+  role?: 'VIEWER' | 'EDITOR' | 'MANAGER' | string
   name?: string
 }
 
@@ -190,6 +192,18 @@ const visible = computed({
 const isOrganizer = computed(() => {
   return props.event && String(props.event.organizer_user_id) === String(props.currentUserId)
 })
+
+// 可编辑权限：发起人 或 被指定为 EDITOR 的内部参与人
+const isEditor = computed(() => {
+  if (!props.event || !props.currentUserId) return false
+  return participants.value.some((p) =>
+    p.user_id != null &&
+    String(p.user_id) === String(props.currentUserId) &&
+    (p.role === 'EDITOR' || p.role === 'MANAGER')
+  )
+})
+
+const canEdit = computed(() => isOrganizer.value || isEditor.value)
 
 const acceptedCount = computed(() => participants.value.filter(p => p.response_status === 'ACCEPTED').length)
 const declinedCount = computed(() => participants.value.filter(p => p.response_status === 'DECLINED').length)
@@ -288,8 +302,20 @@ async function toggleTodo(todo: any) {
   }
 }
 
-function format(value?: string) {
-  return value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : ''
+function format(value?: string, timezone?: string) {
+  if (!value) return ''
+  // 后端存的 start_at/end_at 是 UTC ISO 串；按 event.timezone 字段渲染
+  // 若未指定时区或时区非法则回退到浏览器本地时区
+  let timeZone: string | undefined = timezone
+  if (timeZone) {
+    try {
+      // Intl.DateTimeFormat 在非法时区上会抛错，做一次预检
+      new Intl.DateTimeFormat('en-US', { timeZone }).format(new Date())
+    } catch {
+      timeZone = undefined
+    }
+  }
+  return new Date(value).toLocaleString('zh-CN', { hour12: false, timeZone })
 }
 
 async function respond(status: string) {
@@ -430,6 +456,14 @@ async function respond(status: string) {
   color: var(--calendar-primary);
   font-size: 12px;
   font-weight: 700;
+}
+
+.meta-tag-info {
+  margin-left: 4px;
+  background: #f0f4fa;
+  color: #5b6b8a;
+  font-weight: 500;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .meta-description {
