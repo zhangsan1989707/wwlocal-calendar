@@ -58,7 +58,12 @@ public class EventController {
 
     @PostMapping("/events/{id}/respond")
     public ApiResponse<Void> respond(@PathVariable long id, @RequestBody Map<String, Object> payload) {
-        events.respond(id, String.valueOf(payload.get("userId")), String.valueOf(payload.get("status")));
+        String userId = payload.get("userId") != null ? String.valueOf(payload.get("userId")) : null;
+        String status = payload.get("status") != null ? String.valueOf(payload.get("status")) : null;
+        if (userId == null || status == null) {
+            throw new IllegalArgumentException("userId 和 status 不能为空");
+        }
+        events.respond(id, userId, status);
         return ApiResponse.ok();
     }
 
@@ -89,7 +94,10 @@ public class EventController {
 
     @PutMapping("/todos/{todoId}")
     public ApiResponse<Map<String, Object>> toggleTodo(@PathVariable long todoId, @RequestBody Map<String, Object> payload) {
-        boolean completed = Boolean.TRUE.equals(payload.get("completed"));
+        Boolean completed = (Boolean) payload.get("completed");
+        if (completed == null) {
+            throw new IllegalArgumentException("completed 不能为空");
+        }
         String operatorUserId = payload.get("operatorUserId") != null ? String.valueOf(payload.get("operatorUserId")) : null;
         return ApiResponse.ok(events.toggleTodo(todoId, completed, operatorUserId));
     }

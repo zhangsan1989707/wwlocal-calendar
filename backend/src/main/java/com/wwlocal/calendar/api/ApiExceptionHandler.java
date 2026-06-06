@@ -13,6 +13,12 @@ public class ApiExceptionHandler {
     return new ApiResponse<>(false, null, ex.getMessage());
   }
 
+  @ExceptionHandler(SecurityException.class)
+  @ResponseStatus(HttpStatus.FORBIDDEN)
+  public ApiResponse<Void> securityError(SecurityException ex) {
+    return new ApiResponse<>(false, null, ex.getMessage());
+  }
+
   @ExceptionHandler(Exception.class)
   @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
   public ApiResponse<Void> error(Exception ex) {

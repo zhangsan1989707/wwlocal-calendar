@@ -25,6 +25,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EventService {
@@ -472,6 +473,7 @@ public class EventService {
   /**
    * Create or update an event. After saving the event row, replaces reminders and recurrence.
    */
+  @Transactional
   public Map<String, Object> save(Map<String, Object> payload) {
     // Convert ISO string dates to Timestamp for PostgreSQL
     coerceTimestamp(payload, "start_at");
@@ -610,6 +612,7 @@ public class EventService {
    * scope=single: soft-delete single event (status = CANCELLED).
    * scope=series: cancel the entire recurrence series.
    */
+  @Transactional
   public void remove(long id, String operatorUserId, String scope) {
     if ("series".equals(scope)) {
       // 删除整个重复系列：取消主事件
@@ -631,7 +634,7 @@ public class EventService {
     }
 
     if (!"single".equals(scope)) {
-      throw new UnsupportedOperationException("series delete not implemented");
+      throw new UnsupportedOperationException("Unknown scope: " + scope);
     }
     
     // 检查权限：只有发起人可以删除
@@ -700,6 +703,7 @@ public class EventService {
   /**
    * Export events to an Excel-like structure and record an export_task.
    */
+  @Transactional
   public Map<String, Object> exportEvents(String userId, String scope) {
     var sql = new StringBuilder("""
         SELECT e.id, e.title, e.start_at, e.end_at, e.location, e.description,
@@ -734,6 +738,7 @@ public class EventService {
   /**
    * Export all events to an XLSX file on disk. Returns the file path.
    */
+  @Transactional
   public Path exportEvents(Path outputDir, String userId) throws Exception {
     Files.createDirectories(outputDir);
 
