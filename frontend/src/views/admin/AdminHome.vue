@@ -6,7 +6,6 @@
         <h1>管理首页</h1>
         <p>查看组织日历、成员与系统运行概况。</p>
       </div>
-      <router-link to="/calendar"><el-button type="primary">进入用户端</el-button></router-link>
     </div>
     <div class="stats">
       <div v-for="item in statItems" :key="item.label" class="stat panel">
