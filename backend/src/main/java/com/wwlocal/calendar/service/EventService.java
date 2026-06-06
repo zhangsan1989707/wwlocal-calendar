@@ -480,7 +480,7 @@ public class EventService {
     Map<String, Object> event;
     if (payload.containsKey("id") && payload.get("id") != null) {
       long id = ((Number) payload.get("id")).longValue();
-      
+
       // 检查权限：只有发起人可以编辑
       var operatorUserId = payload.get("operatorUserId");
       if (operatorUserId != null) {
@@ -492,7 +492,7 @@ public class EventService {
           }
         }
       }
-      
+
       event = crud.update("event", COLUMNS, id, payload);
     } else {
       event = crud.create("event", COLUMNS, payload);
