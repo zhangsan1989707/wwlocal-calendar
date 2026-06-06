@@ -293,7 +293,7 @@ public class EventService {
   /**
    * Generate all occurrence dates for a recurrence rule within the given range.
    */
-  private List<LocalDateTime> generateRecurrenceInstances(
+  List<LocalDateTime> generateRecurrenceInstances(
       LocalDateTime start, String rrule, Object endAt, Object count,
       LocalDateTime expandStart, LocalDateTime expandEnd) {
 
@@ -370,7 +370,7 @@ public class EventService {
     return instances;
   }
 
-  private LocalDateTime nextInstance(LocalDateTime current, String freq, int interval,
+  LocalDateTime nextInstance(LocalDateTime current, String freq, int interval,
       List<DayOfWeek> byDays, List<Integer> byDayNums, LocalDateTime originalStart) {
 
     if (byDays.isEmpty()) {
@@ -388,13 +388,29 @@ public class EventService {
       // 按星期几重复
       var dayOfWeek = current.getDayOfWeek();
       var targetIndex = byDays.indexOf(dayOfWeek);
-      if (targetIndex >= 0 && targetIndex < byDays.size() - 1) {
-        // 同周内下一个目标星期
-        var nextDow = byDays.get(targetIndex + 1);
-        var daysUntil = (nextDow.getValue() - dayOfWeek.getValue() + 7) % 7;
-        return current.plusDays(daysUntil == 0 ? 7 : daysUntil);
+      if (targetIndex >= 0) {
+        // 当前日期在 BYDAY 列表中
+        if (targetIndex < byDays.size() - 1) {
+          // 同周内下一个目标星期
+          var nextDow = byDays.get(targetIndex + 1);
+          var daysUntil = (nextDow.getValue() - dayOfWeek.getValue() + 7) % 7;
+          return current.plusDays(daysUntil == 0 ? 7 : daysUntil);
+        } else {
+          // 本周最后一个 BYDAY，跳到下周第一个
+          var nextDow = byDays.get(0);
+          var daysUntil = (nextDow.getValue() - dayOfWeek.getValue() + 7) % 7;
+          if (daysUntil == 0) daysUntil = 7;
+          return current.plusDays(daysUntil).plusWeeks(interval - 1);
+        }
       } else {
-        // 下一周的第一个目标星期
+        // 当前日期不在 BYDAY 列表中，找本周内下一个 BYDAY
+        for (var dow : byDays) {
+          if (dow.getValue() > dayOfWeek.getValue()) {
+            // 本周内还有后续的 BYDAY
+            return current.plusDays(dow.getValue() - dayOfWeek.getValue());
+          }
+        }
+        // 本周已无后续 BYDAY，跳到下周第一个
         var nextDow = byDays.get(0);
         var daysUntil = (nextDow.getValue() - dayOfWeek.getValue() + 7) % 7;
         if (daysUntil == 0) daysUntil = 7;
