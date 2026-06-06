@@ -86,19 +86,36 @@ public class OpsController {
 
   @GetMapping("/files/{id}/download")
   public ResponseEntity<FileSystemResource> download(@PathVariable long id) {
-    var row = jdbc.queryForMap("SELECT * FROM event_attachment WHERE id = ?", id);
-    var path = Path.of(String.valueOf(row.get("file_path"))).normalize();
+    var rows = jdbc.queryForList("SELECT * FROM event_attachment WHERE id = ?", id);
+    if (rows.isEmpty()) {
+      throw new IllegalArgumentException("附件不存在");
+    }
+    var row = rows.get(0);
+    var uploadDir = Path.of(properties.uploadDir()).toAbsolutePath().normalize();
+    var path = Path.of(String.valueOf(row.get("file_path"))).toAbsolutePath().normalize();
+    if (!path.startsWith(uploadDir)) {
+      throw new SecurityException("非法文件路径");
+    }
     var resource = new FileSystemResource(path);
     return ResponseEntity.ok()
         .contentType(MediaType.APPLICATION_OCTET_STREAM)
-        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + row.get("file_name") + "\"")
+        .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + sanitizeFilename(String.valueOf(row.get("file_name"))) + "\"")
         .body(resource);
   }
 
   @PostMapping("/attachments/{id}/delete")
   public ApiResponse<Void> deleteAttachment(@PathVariable long id, @RequestBody(required = false) Map<String, Object> payload) throws Exception {
-    var row = jdbc.queryForMap("SELECT * FROM event_attachment WHERE id = ?", id);
-    Files.deleteIfExists(Path.of(String.valueOf(row.get("file_path"))));
+    var rows = jdbc.queryForList("SELECT * FROM event_attachment WHERE id = ?", id);
+    if (rows.isEmpty()) {
+      throw new IllegalArgumentException("附件不存在");
+    }
+    var row = rows.get(0);
+    var uploadDir = Path.of(properties.uploadDir()).toAbsolutePath().normalize();
+    var path = Path.of(String.valueOf(row.get("file_path"))).toAbsolutePath().normalize();
+    if (!path.startsWith(uploadDir)) {
+      throw new SecurityException("非法文件路径");
+    }
+    Files.deleteIfExists(path);
     crud.delete("event_attachment", id);
     audit.record(payload == null ? null : number(payload.get("operatorUserId")), "ATTACHMENT", "DELETE",
         "event_attachment", id, "附件已删除");
@@ -173,5 +190,11 @@ public class OpsController {
 
   private String number(Object value) {
     return value instanceof String s ? s : null;
+  }
+
+  private String sanitizeFilename(String filename) {
+    if (filename == null) return "file";
+    // Remove any characters that could be used for header injection
+    return filename.replaceAll("[\\r\\n\"']", "");
   }
 }

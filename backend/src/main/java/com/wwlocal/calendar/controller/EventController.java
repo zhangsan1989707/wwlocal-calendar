@@ -106,7 +106,7 @@ public class EventController {
             
             response.setContentType(MediaType.APPLICATION_OCTET_STREAM_VALUE);
             response.setHeader(HttpHeaders.CONTENT_DISPOSITION, 
-                "attachment; filename=\"" + filePath.getFileName().toString() + "\"");
+                "attachment; filename=\"" + sanitizeFilename(filePath.getFileName().toString()) + "\"");
             
             try (FileInputStream fis = new FileInputStream(filePath.toFile())) {
                 FileCopyUtils.copy(fis, response.getOutputStream());
@@ -114,5 +114,10 @@ public class EventController {
         } catch (Exception e) {
             throw new IOException("导出日程失败: " + e.getMessage(), e);
         }
+    }
+
+    private String sanitizeFilename(String filename) {
+        if (filename == null) return "file";
+        return filename.replaceAll("[\\r\\n\"']", "");
     }
 }

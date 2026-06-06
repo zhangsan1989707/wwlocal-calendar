@@ -25,6 +25,7 @@ import org.apache.poi.ss.usermodel.Workbook;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 @Service
 public class EventService {
@@ -472,6 +473,7 @@ public class EventService {
   /**
    * Create or update an event. After saving the event row, replaces reminders and recurrence.
    */
+  @Transactional
   public Map<String, Object> save(Map<String, Object> payload) {
     // Convert ISO string dates to Timestamp for PostgreSQL
     coerceTimestamp(payload, "start_at");
@@ -825,6 +827,10 @@ public class EventService {
     if (operatorUserId != null) {
       audit.record(operatorUserId, "todo", completed ? "complete" : "reopen", "event_todo", todoId, completed ? "待办已完成" : "待办已重新打开");
     }
-    return jdbc.queryForMap("SELECT * FROM event_todo WHERE id = ?", todoId);
+    var rows = jdbc.queryForList("SELECT * FROM event_todo WHERE id = ?", todoId);
+    if (rows.isEmpty()) {
+      throw new IllegalArgumentException("待办不存在");
+    }
+    return rows.get(0);
   }
 }
