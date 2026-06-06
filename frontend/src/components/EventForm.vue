@@ -402,8 +402,9 @@ async function createExternalContact() {
     showAddExternalContact.value = false
     Object.assign(newExternalContact, { name: '', contact_type: 'wechat', company: '', email: '', phone: '' })
     ElMessage.success('外部联系人已添加')
-  } catch {
-    ElMessage.error('添加失败')
+  } catch (e: any) {
+    console.error('外部联系人添加失败:', e)
+    ElMessage.error(e?.message || '添加失败，请重试')
   } finally {
     savingExternalContact.value = false
   }
@@ -926,6 +927,8 @@ function formatTime(date: Date) {
   grid-template-columns: minmax(120px, 1fr) 120px 88px 72px;
   gap: 8px;
 }
+
+
 
 @media (max-width: 720px) {
   :global(.event-dialog.el-dialog) {
