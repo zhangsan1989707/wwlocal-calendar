@@ -2,6 +2,7 @@ package com.wwlocal.calendar.security;
 
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
@@ -12,17 +13,31 @@ import java.util.Map;
 @Component
 public class JwtUtil {
 
-    private static final String SECRET = "wwlocal-calendar-jwt-secret-key-2026-min-256bits";
-    private static final long EXPIRATION_MS = 24 * 60 * 60 * 1000; // 24小时
+    private final SecretKey key;
+    private final long expirationMs;
 
-    private final SecretKey key = Keys.hmacShaKeyFor(SECRET.getBytes(StandardCharsets.UTF_8));
+    public JwtUtil(@Value("${app.jwt.secret:}") String secret,
+                   @Value("${app.jwt.expiration-ms:86400000}") long expirationMs) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                "app.jwt.secret must be configured (env APP_JWT_SECRET or app.jwt.secret in application.yml). "
+                + "Hardcoded secrets allow anyone with source access to forge tokens.");
+        }
+        var bytes = secret.getBytes(StandardCharsets.UTF_8);
+        if (bytes.length < 32) {
+            throw new IllegalStateException(
+                "app.jwt.secret must be at least 32 bytes (256 bits); got " + bytes.length + " bytes.");
+        }
+        this.key = Keys.hmacShaKeyFor(bytes);
+        this.expirationMs = expirationMs;
+    }
 
     public String generateToken(String userId, String username, String role) {
         return Jwts.builder()
                 .subject(userId)
                 .claims(Map.of("username", username, "role", role))
                 .issuedAt(new Date())
-                .expiration(new Date(System.currentTimeMillis() + EXPIRATION_MS))
+                .expiration(new Date(System.currentTimeMillis() + expirationMs))
                 .signWith(key)
                 .compact();
     }

@@ -39,6 +39,7 @@ class CalendarApiIntegrationTest {
     registry.add("app.export-dir", () -> "target/test-exports");
     registry.add("app.backup-dir", () -> "target/test-backups");
     registry.add("app.allowed-origins", () -> "http://localhost:3007");
+    registry.add("app.jwt.secret", () -> "test-jwt-secret-test-jwt-secret-test-jwt-secret-32+");
   }
 
   @Autowired
