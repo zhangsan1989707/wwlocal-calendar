@@ -1,24 +1,16 @@
 {
-  "generatedAt": "2026-06-06T06:02:20.475Z",
-  "totalTests": 2,
-  "passed": 2,
-  "failed": 0,
+  "generatedAt": "2026-06-06T13:08:14.275Z",
+  "totalTests": 1,
+  "passed": 0,
+  "failed": 1,
   "results": [
     {
       "id": 0,
       "module": "系统验证",
       "feature": "错误处理-后端异常",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-50-错误处理-后端异常-1780725735902.png",
-      "note": "检测到验证提示"
-    },
-    {
-      "id": 0,
-      "module": "系统验证",
-      "feature": "搜索结果数量限制",
-      "passed": true,
-      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-51-搜索结果数量限制-1780725740333.png",
-      "note": "搜索结果共 0 条"
+      "passed": false,
+      "screenshotPath": "/Users/leohang/project/wwlocal-calendar/frontend/screenshots/feature-50-错误处理-后端异常-failed-1780751231140.png",
+      "note": "page.waitForSelector: Timeout 15000ms exceeded.\nCall log:\n\u001b[2m  - waiting for locator('.calendar-stage') to be visible\u001b[22m\n"
     }
   ]
 }
