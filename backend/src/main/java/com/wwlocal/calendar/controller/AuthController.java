@@ -127,6 +127,17 @@ public class AuthController {
             default -> appUserId;
         };
         var mapped = jdbc.queryForList("SELECT id FROM users WHERE id = ?", fallback);
-        return mapped.isEmpty() ? appUserId : fallback;
+        if (!mapped.isEmpty()) {
+            return fallback;
+        }
+        // Handle legacy numeric IDs from older database versions
+        var legacyFallback = switch (username) {
+            case "admin" -> "1";
+            case "zhangsan" -> "2";
+            case "lisi" -> "3";
+            default -> appUserId;
+        };
+        var legacyMapped = jdbc.queryForList("SELECT id FROM users WHERE id = ?", legacyFallback);
+        return legacyMapped.isEmpty() ? appUserId : legacyFallback;
     }
 }

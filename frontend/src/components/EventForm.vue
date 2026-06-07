@@ -25,19 +25,19 @@
             </div>
           </el-form-item>
           <el-form-item label="开始" required>
-            <div class="inline-fields">
+            <div class="inline-fields" :class="{ 'all-day': form.all_day }">
               <el-date-picker v-model="startDate" type="date" format="M月D日 ddd" />
-              <el-time-select v-model="startTime" start="08:00" step="00:15" end="20:00" />
+              <el-time-select v-if="!form.all_day" v-model="startTime" start="08:00" step="00:15" end="20:00" />
               <el-checkbox v-model="form.all_day">全天</el-checkbox>
             </div>
           </el-form-item>
           <el-form-item label="结束">
-            <div class="inline-fields">
+            <div class="inline-fields" :class="{ 'all-day': form.all_day }">
               <el-date-picker v-model="endDate" type="date" format="M月D日 ddd" />
-              <el-time-select v-model="endTime" start="08:00" step="00:15" end="20:00" />
+              <el-time-select v-if="!form.all_day" v-model="endTime" start="08:00" step="00:15" end="20:00" />
             </div>
           </el-form-item>
-          <el-form-item label="时长">
+          <el-form-item v-if="!form.all_day" label="时长">
             <el-select v-model="durationLabel">
               <el-option label="30分钟" value="30分钟" />
               <el-option label="1小时" value="1小时" />
@@ -667,6 +667,7 @@ function onRecurrenceChange() {
 
 // Sync end time when duration changes
 watch(durationLabel, (label) => {
+  if (form.all_day) return
   const durationMap: Record<string, number> = {
     '30分钟': 30,
     '1小时': 60,
@@ -696,11 +697,11 @@ async function submit() {
     }
   }
   const start = eventTimezone
-    ? zonedDateTimeToUtc(startDate.value, startTime.value, eventTimezone)
-    : mergeDateTime(startDate.value, startTime.value)
+    ? zonedDateTimeToUtc(startDate.value, form.all_day ? '00:00' : startTime.value, eventTimezone)
+    : mergeDateTime(startDate.value, form.all_day ? '00:00' : startTime.value)
   const end = eventTimezone
-    ? zonedDateTimeToUtc(endDate.value, endTime.value, eventTimezone)
-    : mergeDateTime(endDate.value, endTime.value)
+    ? zonedDateTimeToUtc(endDate.value, form.all_day ? '23:59' : endTime.value, eventTimezone)
+    : mergeDateTime(endDate.value, form.all_day ? '23:59' : endTime.value)
 
   // Translate reminderLabel to reminders array for backend
   const reminders: Array<{ minutes_before: number; method: string }> = []
@@ -942,6 +943,11 @@ function formatTime(date: Date) {
   grid-template-columns: minmax(160px, 1fr) 126px auto;
   gap: 10px;
   width: 100%;
+}
+
+/* 全天模式：隐藏时间选择器，只保留日期选择器 + 复选框（开始行）或仅日期选择器（结束行） */
+.inline-fields.all-day {
+  grid-template-columns: minmax(160px, 1fr) auto;
 }
 
 .attach-button {
@@ -1262,6 +1268,11 @@ function formatTime(date: Date) {
     grid-template-columns: minmax(120px, 1fr) 100px auto;
     justify-content: end;
     gap: 8px;
+  }
+
+  /* 移动端全天模式 */
+  .inline-fields.all-day {
+    grid-template-columns: minmax(120px, 1fr) auto;
   }
 
   .inline-fields :deep(.el-date-editor.el-input),

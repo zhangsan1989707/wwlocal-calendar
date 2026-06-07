@@ -35,6 +35,7 @@ services:
       APP_UPLOAD_DIR: /app/uploads
       APP_BACKUP_DIR: /app/backup
       ALLOWED_ORIGINS: http://localhost:3007,http://127.0.0.1:3007,http://localhost:5173,http://127.0.0.1:5173,http://47.109.85.168:3007
+      APP_JWT_SECRET: ${APP_JWT_SECRET:-wwlocal-calendar-jwt-secret-2026-prod}
       TZ: Asia/Shanghai
     volumes:
       - ./uploads:/app/uploads
