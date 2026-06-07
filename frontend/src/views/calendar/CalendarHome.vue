@@ -225,7 +225,7 @@
             :key="day.key"
             class="mobile-day"
             :class="{ active: isSameDate(day.date, selectedDate), muted: !day.currentMonth }"
-            @click="openCreate(day.date)"
+            @click="selectedDate = day.date"
           >
             <strong>{{ day.date.getDate() === 1 ? `${day.date.getMonth() + 1}月` : day.date.getDate() }}</strong>
             <span>{{ lunarText(day.date) }}</span>
@@ -476,7 +476,34 @@ watch(displayCalendars, (items) => {
 })
 
 async function reload() {
-  await store.loadEvents('')
+  // 计算当前视图的日期范围，传递给后端
+  let start: Date, end: Date
+  if (view.value === 'month') {
+    const firstDay = new Date(selectedDate.value.getFullYear(), selectedDate.value.getMonth(), 1)
+    start = new Date(firstDay)
+    start.setDate(start.getDate() - firstDay.getDay()) // 周一为第一天或者周日？这里用和 monthDays 一样的逻辑
+    end = new Date(start)
+    end.setDate(end.getDate() + 42) // 6周
+  } else if (view.value === 'week') {
+    start = new Date(selectedDate.value)
+    start.setDate(start.getDate() - start.getDay())
+    end = new Date(start)
+    end.setDate(end.getDate() + 7)
+  } else { // day
+    start = new Date(selectedDate.value)
+    start.setHours(0,0,0,0)
+    end = new Date(start)
+    end.setDate(end.getDate() + 1)
+  }
+  // 稍微扩展范围，避免边界事件丢失
+  start.setDate(start.getDate() - 7)
+  end.setDate(end.getDate() + 7)
+  
+  const params = new URLSearchParams()
+  params.set('start_at', start.toISOString())
+  params.set('end_at', end.toISOString())
+  
+  await store.loadEvents(`?${params.toString()}`)
   await fetchNotifications()
 }
 
@@ -551,21 +578,29 @@ async function removeEvent(event: EventItem) {
         })
         // 删除整个系列
         const seriesId = event.recurrence_event_id || event.id
-        if (!seriesId || String(seriesId).startsWith('local-')) {
+        // 对于展开的实例，提取真实的事件 ID
+        const realSeriesId = typeof seriesId === 'string' && seriesId.includes('_') 
+          ? seriesId.split('_')[0] 
+          : seriesId
+        if (!realSeriesId || String(realSeriesId).startsWith('local-')) {
           ElMessage.warning('无法删除此日程：日程ID无效')
           return
         }
-        await api.delete(`/events/${seriesId}?operatorUserId=${store.currentUserId}&scope=series`)
+        await api.delete(`/events/${realSeriesId}?operatorUserId=${store.currentUserId}&scope=series`)
         ElMessage.success('已删除整个系列')
       } catch (action: any) {
         if (action === 'cancel') {
           // 仅删除本次
-          if (!event.id || String(event.id).startsWith('local-')) {
+          const singleId = event.recurrence_event_id || event.id
+          const realSingleId = typeof singleId === 'string' && singleId.includes('_') 
+            ? singleId.split('_')[0] 
+            : singleId
+          if (!realSingleId || String(realSingleId).startsWith('local-')) {
             ElMessage.warning('无法删除此日程：日程ID无效')
             return
           }
           const originalStartAt = event.original_start_at || event.start_at
-          await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single&originalStartAt=${encodeURIComponent(originalStartAt)}`)
+          await api.delete(`/events/${realSingleId}?operatorUserId=${store.currentUserId}&scope=single&originalStartAt=${encodeURIComponent(originalStartAt)}`)
           ElMessage.success('已删除')
         } else {
           // 重新抛出非 cancel 的错误（包括 API 调用失败等）
@@ -574,11 +609,14 @@ async function removeEvent(event: EventItem) {
       }
     } else {
       await ElMessageBox.confirm('确认删除该日程？')
-      if (!event.id || String(event.id).startsWith('local-')) {
+      const realId = typeof event.id === 'string' && event.id.includes('_') 
+        ? event.id.split('_')[0] 
+        : event.id
+      if (!realId || String(realId).startsWith('local-')) {
         ElMessage.warning('无法删除此日程：日程ID无效')
         return
       }
-      await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
+      await api.delete(`/events/${realId}?operatorUserId=${store.currentUserId}&scope=single`)
       ElMessage.success('已删除')
     }
     detailVisible.value = false

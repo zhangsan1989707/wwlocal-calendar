@@ -5,7 +5,7 @@
         <button class="mobile-close-button" type="button" @click="visible = false">×</button>
         <el-input v-model="form.title" class="title-input" maxlength="100" placeholder="日程、活动主题" />
 
-        <el-form :model="form" label-width="84px" class="compact-form">
+        <el-form :model="form" label-width="96px" class="compact-form">
           <el-form-item label="参会人">
             <el-select v-model="participantIds" multiple filterable placeholder="添加内部成员">
               <el-option v-for="item in users" :key="item.id" :label="item.name" :value="String(item.id)" />
@@ -26,15 +26,15 @@
           </el-form-item>
           <el-form-item label="开始" required>
             <div class="inline-fields" :class="{ 'all-day': form.all_day }">
-              <el-date-picker v-model="startDate" type="date" format="M月D日 ddd" />
-              <el-time-select v-if="!form.all_day" v-model="startTime" start="08:00" step="00:15" end="20:00" />
+              <el-date-picker v-model="startDate" type="date" format="M月D日 ddd" placeholder="选择日期" />
+              <el-time-select v-if="!form.all_day" v-model="startTime" start="08:00" step="00:15" end="20:00" placeholder="选择时间" />
               <el-checkbox v-model="form.all_day">全天</el-checkbox>
             </div>
           </el-form-item>
           <el-form-item label="结束">
             <div class="inline-fields" :class="{ 'all-day': form.all_day }">
-              <el-date-picker v-model="endDate" type="date" format="M月D日 ddd" />
-              <el-time-select v-if="!form.all_day" v-model="endTime" start="08:00" step="00:15" end="20:00" />
+              <el-date-picker v-model="endDate" type="date" format="M月D日 ddd" placeholder="选择日期" />
+              <el-time-select v-if="!form.all_day" v-model="endTime" start="08:00" step="00:15" end="20:00" placeholder="选择时间" />
             </div>
           </el-form-item>
           <el-form-item v-if="!form.all_day" label="时长">
@@ -880,10 +880,18 @@ function formatTime(date: Date) {
   margin-bottom: 16px;
 }
 
+.compact-form {
+  --el-form-label-width: 96px;
+}
+
 .compact-form :deep(.el-form-item__label) {
   color: #172033;
   font-size: 14px;
   font-weight: 600;
+  white-space: nowrap;
+  word-break: keep-all;
+  width: 96px !important;
+  min-width: 96px;
 }
 
 .compact-form :deep(.el-input__wrapper) {
@@ -1218,7 +1226,8 @@ function formatTime(date: Date) {
   }
 
   .compact-form :deep(.el-form-item__label) {
-    min-width: 88px;
+    min-width: 100px;
+    width: 100px !important;
     height: 72px;
     display: flex;
     align-items: center;

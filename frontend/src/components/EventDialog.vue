@@ -10,10 +10,10 @@
         </el-select>
       </el-form-item>
       <el-form-item label="开始时间">
-        <el-date-picker v-model="form.start" type="datetime" value-format="YYYY-MM-DDTHH:mm" class="full-width" />
+        <el-date-picker v-model="form.start" type="datetime" value-format="YYYY-MM-DDTHH:mm" placeholder="选择开始时间" class="full-width" />
       </el-form-item>
       <el-form-item label="结束时间">
-        <el-date-picker v-model="form.end" type="datetime" value-format="YYYY-MM-DDTHH:mm" class="full-width" />
+        <el-date-picker v-model="form.end" type="datetime" value-format="YYYY-MM-DDTHH:mm" placeholder="选择结束时间" class="full-width" />
       </el-form-item>
       <el-form-item label="地点">
         <el-input v-model="form.location" placeholder="请输入地点" />

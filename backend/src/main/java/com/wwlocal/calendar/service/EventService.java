@@ -290,6 +290,8 @@ public class EventService {
         instance.put("is_recurrence_instance", true);
         instance.put("recurrence_event_id", eventId);
         instance.put("recurrence_rule", rrule);
+        // 给每个展开实例生成唯一 id，防止前端 v-for key 重复
+        instance.put("id", eventId + "_" + originalInstanceStart.toString().replace(":", "-").replace(" ", "_"));
 
         // 应用单次修改的 modified_data 和 reminder_override
         var exData = exceptionData.get(instanceDate);
