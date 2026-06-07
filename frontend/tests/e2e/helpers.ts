@@ -96,9 +96,11 @@ export async function toggleAllDay(page: Page, checked: boolean) {
 export async function selectCalendar(page: Page, calendarName: string) {
   const calendarSelect = page.locator('.el-dialog .el-form-item').filter({ hasText: '日历' }).locator('.el-select').first()
   await calendarSelect.click()
-  await page.waitForTimeout(300)
   const option = page.locator('.el-select-dropdown__item', { hasText: calendarName }).first()
-  await option.click()
+  await option.waitFor({ state: 'visible', timeout: 5000 })
+  await option.scrollIntoViewIfNeeded().catch(() => {})
+  await option.click({ force: true })
+  await page.locator('.el-select-dropdown:visible').first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {})
   await page.waitForTimeout(300)
 }
 
@@ -108,9 +110,11 @@ export async function selectCalendar(page: Page, calendarName: string) {
 export async function selectTag(page: Page, tagName: string) {
   const tagSelect = page.locator('.el-dialog .el-form-item').filter({ hasText: '标签' }).locator('.el-select').first()
   await tagSelect.click()
-  await page.waitForTimeout(300)
   const option = page.locator('.el-select-dropdown__item', { hasText: tagName }).first()
-  await option.click()
+  await option.waitFor({ state: 'visible', timeout: 5000 })
+  await option.scrollIntoViewIfNeeded().catch(() => {})
+  await option.click({ force: true })
+  await page.locator('.el-select-dropdown:visible').first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {})
   await page.waitForTimeout(300)
 }
 
@@ -128,9 +132,11 @@ export async function selectRecurrence(page: Page, rule: 'daily' | 'workday' | '
   }
   const recurrenceSelect = page.locator('.el-dialog .el-form-item').filter({ hasText: '重复' }).locator('.el-select').first()
   await recurrenceSelect.click()
-  await page.waitForTimeout(300)
   const option = page.locator('.el-select-dropdown__item', { hasText: ruleMap[rule] }).first()
-  await option.click()
+  await option.waitFor({ state: 'visible', timeout: 5000 })
+  await option.scrollIntoViewIfNeeded().catch(() => {})
+  await option.click({ force: true })
+  await page.locator('.el-select-dropdown:visible').first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {})
   await page.waitForTimeout(300)
 }
 
@@ -150,10 +156,14 @@ export async function selectReminder(page: Page, reminder: 'none' | 'immediate' 
   }
   const reminderSelect = page.locator('.el-dialog .el-form-item').filter({ hasText: '提醒' }).locator('.el-select').first()
   await reminderSelect.click()
-  await page.waitForTimeout(300)
   const option = page.locator('.el-select-dropdown__item', { hasText: reminderMap[reminder] }).first()
-  await option.click()
-  await page.waitForTimeout(300)
+  await option.waitFor({ state: 'visible', timeout: 5000 })
+  // 自定义 / 末尾选项可能被 dialog 视口裁切，scrollIntoView + force
+  await option.scrollIntoViewIfNeeded().catch(() => {})
+  await option.click({ force: true })
+  // 自定义会立即展开 v-if 的 el-input-number，先等它稳定再收尾
+  await page.waitForTimeout(400)
+  await page.locator('.el-select-dropdown:visible').first().waitFor({ state: 'hidden', timeout: 5000 }).catch(() => {})
 }
 
 /**
