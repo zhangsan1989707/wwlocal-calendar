@@ -5,7 +5,7 @@
         <button class="mobile-close-button" type="button" @click="visible = false">×</button>
         <el-input v-model="form.title" class="title-input" maxlength="100" placeholder="日程、活动主题" />
 
-        <el-form :model="form" label-width="96px" class="compact-form">
+        <el-form :model="form" class="compact-form">
           <el-form-item label="参会人">
             <el-select v-model="participantIds" multiple filterable placeholder="添加内部成员">
               <el-option v-for="item in users" :key="item.id" :label="item.name" :value="String(item.id)" />
