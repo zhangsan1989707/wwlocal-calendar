@@ -542,40 +542,49 @@ function editEvent(event: EventItem) {
 async function removeEvent(event: EventItem) {
   try {
     if (event.is_recurrence_instance || event.recurrence_rule) {
-      await ElMessageBox.confirm('该日程是重复日程，是否删除整个系列？', '删除重复日程', {
-        confirmButtonText: '删除整个系列',
-        cancelButtonText: '仅删除本次',
-        distinguishCancelAndClose: true,
-        type: 'warning'
-      }).then(async () => {
+      try {
+        await ElMessageBox.confirm('该日程是重复日程，是否删除整个系列？', '删除重复日程', {
+          confirmButtonText: '删除整个系列',
+          cancelButtonText: '仅删除本次',
+          distinguishCancelAndClose: true,
+          type: 'warning'
+        })
         // 删除整个系列
         const seriesId = event.recurrence_event_id || event.id
-        if (seriesId && !String(seriesId).startsWith('local-')) {
-          await api.delete(`/events/${seriesId}?operatorUserId=${store.currentUserId}&scope=series`)
+        if (!seriesId || String(seriesId).startsWith('local-')) {
+          ElMessage.warning('无法删除此日程：日程ID无效')
+          return
         }
+        await api.delete(`/events/${seriesId}?operatorUserId=${store.currentUserId}&scope=series`)
         ElMessage.success('已删除整个系列')
-      }).catch(async (action: string) => {
+      } catch (action: any) {
         if (action === 'cancel') {
           // 仅删除本次
-          if (event.id && !String(event.id).startsWith('local-')) {
-            const originalStartAt = event.original_start_at || event.start_at
-            await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single&originalStartAt=${encodeURIComponent(originalStartAt)}`)
+          if (!event.id || String(event.id).startsWith('local-')) {
+            ElMessage.warning('无法删除此日程：日程ID无效')
+            return
           }
+          const originalStartAt = event.original_start_at || event.start_at
+          await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single&originalStartAt=${encodeURIComponent(originalStartAt)}`)
           ElMessage.success('已删除')
+        } else {
+          // 重新抛出非 cancel 的错误（包括 API 调用失败等）
+          throw action
         }
-        return
-      })
+      }
     } else {
       await ElMessageBox.confirm('确认删除该日程？')
-      if (event.id && !event.id.toString().startsWith('local-')) {
-        await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
+      if (!event.id || String(event.id).startsWith('local-')) {
+        ElMessage.warning('无法删除此日程：日程ID无效')
+        return
       }
+      await api.delete(`/events/${event.id}?operatorUserId=${store.currentUserId}&scope=single`)
       ElMessage.success('已删除')
     }
     detailVisible.value = false
     await reload()
   } catch (err: any) {
-    if (err !== 'cancel') {
+    if (err !== 'cancel' && err !== 'close') {
       ElMessage.error(err?.message || '删除失败')
     }
   }
