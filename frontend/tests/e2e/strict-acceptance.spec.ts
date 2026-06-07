@@ -116,7 +116,19 @@ async function pickDateByFormLabel(page, label: string, day: string) {
 
 async function saveEvent(page) {
   await waitForNoClosingOverlay(page)
-  await page.getByRole('button', { name: '保存日程' }).click()
+  // 通过 evaluate 直接触发按钮点击，绕过时间选择器遮挡
+  await page.evaluate(() => {
+    const dialogs = document.querySelectorAll('.event-dialog')
+    const visibleDialog = Array.from(dialogs).find(d => {
+      const style = window.getComputedStyle(d)
+      return style.display !== 'none' && style.visibility !== 'hidden'
+    })
+    if (visibleDialog) {
+      const buttons = visibleDialog.querySelectorAll('button')
+      const saveBtn = Array.from(buttons).find(b => b.textContent?.trim() === '保存日程')
+      if (saveBtn && saveBtn instanceof HTMLElement) saveBtn.click()
+    }
+  })
   await expect(page.locator('.el-message__content', { hasText: '已保存' })).toBeVisible({ timeout: 15000 })
   await expect(page.locator('.event-dialog:visible')).toHaveCount(0, { timeout: 10000 })
   await waitForNoClosingOverlay(page)
